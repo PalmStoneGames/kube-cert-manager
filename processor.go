@@ -20,6 +20,7 @@ import (
 	"log"
 	"sync"
 	"time"
+	"encoding/json"
 
 	"github.com/boltdb/bolt"
 	"github.com/pkg/errors"
@@ -37,7 +38,6 @@ import (
 	"github.com/xenolf/lego/providers/dns/rfc2136"
 	"github.com/xenolf/lego/providers/dns/route53"
 	"github.com/xenolf/lego/providers/dns/vultr"
-	"encoding/json"
 )
 
 type CertProcessor struct {
@@ -45,6 +45,8 @@ type CertProcessor struct {
 	acmeURL          string
 	db               *bolt.DB
 	Lock             sync.Mutex
+	HTTPLock         sync.Mutex
+	TLSLock          sync.Mutex
 }
 
 func NewCertProcessor(acmeURL string, certSecretPrefix string, db *bolt.DB) *CertProcessor {
@@ -54,34 +56,34 @@ func NewCertProcessor(acmeURL string, certSecretPrefix string, db *bolt.DB) *Cer
 	}
 }
 
-func (p *CertProcessor) newACMEClient(acmeUser acme.User, provider string) (*acme.Client, error) {
+func (p *CertProcessor) newACMEClient(acmeUser acme.User, provider string) (*acme.Client, *sync.Mutex, error) {
 	acmeClient, err := acme.NewClient(p.acmeURL, acmeUser, acme.RSA2048)
 	if err != nil {
-		return nil, errors.Wrap(err, "Error while generating acme client")
+		return nil, nil, errors.Wrap(err, "Error while generating acme client")
 	}
 
-	initDNSProvider := func(p acme.ChallengeProvider, err error) (*acme.Client, error) {
+	initDNSProvider := func(p acme.ChallengeProvider, err error) (*acme.Client, *sync.Mutex, error) {
 		if err != nil {
-			return nil, errors.Wrapf(err, "Error while initializing provider %v", provider)
+			return nil, nil, errors.Wrapf(err, "Error while initializing provider %v", provider)
 		}
 
 		if err := acmeClient.SetChallengeProvider(acme.DNS01, p); err != nil {
-			return nil, errors.Wrap(err, "Error while setting cloudflare challenge provider")
+			return nil, nil, errors.Wrap(err, "Error while setting cloudflare challenge provider")
 		}
 
 		acmeClient.ExcludeChallenges([]acme.Challenge{acme.HTTP01, acme.TLSSNI01})
-		return acmeClient, nil
+		return acmeClient, nil, nil
 	}
 
 	switch provider {
 	case "http":
 		acmeClient.SetHTTPAddress("8080")
 		acmeClient.ExcludeChallenges([]acme.Challenge{acme.DNS01, acme.TLSSNI01})
-		return acmeClient, nil
+		return acmeClient, &p.HTTPLock, nil
 	case "tls":
 		acmeClient.SetTLSAddress("8081")
 		acmeClient.ExcludeChallenges([]acme.Challenge{acme.HTTP01, acme.DNS01})
-		return acmeClient, nil
+		return acmeClient, &p.TLSLock, nil
 	case "cloudflare":
 		return initDNSProvider(cloudflare.NewDNSProvider())
 	case "digitalocean":
@@ -109,7 +111,7 @@ func (p *CertProcessor) newACMEClient(acmeUser acme.User, provider string) (*acm
 	case "vultr":
 		return initDNSProvider(vultr.NewDNSProvider())
 	default:
-		return nil, errors.Errorf("Unknown provider %v", provider)
+		return nil, nil, errors.Errorf("Unknown provider %v", provider)
 	}
 }
 
@@ -193,7 +195,8 @@ func (p *CertProcessor) processCertificate(certSpec *CertificateSpec) error {
 		acmeUserInfo    ACMEUserData
 		acmeCertDetails ACMECertDetails
 		acmeCert        ACMECertData
-		acmeClient 	*acme.Client
+		acmeClient      *acme.Client
+		acmeClientMutex *sync.Mutex
 	)
 
 	// Fetch current certificate data from k8s
@@ -224,7 +227,6 @@ func (p *CertProcessor) processCertificate(certSpec *CertificateSpec) error {
 		log.Printf("[%v] Expiry for cert is in less than a week (%v), attempting renewal", certSpec.Domain, parsedCert.NotAfter.String())
 	}
 
-
 	// Fetch acme user data and cert details from bolt
 	var userInfoRaw, certDetailsRaw []byte
 	err = p.db.View(func(tx *bolt.Tx) error {
@@ -243,9 +245,15 @@ func (p *CertProcessor) processCertificate(certSpec *CertificateSpec) error {
 			return errors.Wrapf(err, "Error while unmarshalling user info for %v", certSpec.Domain)
 		}
 
-		acmeClient, err = p.newACMEClient(&acmeUserInfo, certSpec.Provider)
+		acmeClient, acmeClientMutex, err = p.newACMEClient(&acmeUserInfo, certSpec.Provider)
 		if err != nil {
 			return errors.Wrapf(err, "Error while creating ACME client for %v", certSpec.Domain)
+		}
+
+		// Some acme providers require locking, if the mutex is specified, lock it
+		if acmeClientMutex != nil {
+			acmeClientMutex.Lock()
+			defer acmeClientMutex.Lock()
 		}
 	} else { // Generate a new ACME user
 		userKey, err := rsa.GenerateKey(rand.Reader, 2048)
@@ -259,9 +267,15 @@ func (p *CertProcessor) processCertificate(certSpec *CertificateSpec) error {
 			Bytes: x509.MarshalPKCS1PrivateKey(userKey),
 		})
 
-		acmeClient, err = p.newACMEClient(&acmeUserInfo, certSpec.Provider)
+		acmeClient, acmeClientMutex, err = p.newACMEClient(&acmeUserInfo, certSpec.Provider)
 		if err != nil {
 			return errors.Wrapf(err, "Error while creating ACME client for %v", certSpec.Domain)
+		}
+
+		// Some acme providers require locking, if the mutex is specified, lock it
+		if acmeClientMutex != nil {
+			acmeClientMutex.Lock()
+			defer acmeClientMutex.Lock()
 		}
 
 		// Register
@@ -293,12 +307,6 @@ func (p *CertProcessor) processCertificate(certSpec *CertificateSpec) error {
 	} else {
 		if err := json.Unmarshal(certDetailsRaw, &acmeCertDetails); err != nil {
 			return errors.Wrapf(err, "Error while unmarshalling cert details for existing domain %v", certSpec.Domain)
-		}
-
-		// Initialize ACME client
-		acmeClient, err := p.newACMEClient(&acmeUserInfo, certSpec.Provider)
-		if err != nil {
-			return errors.Wrapf(err, "Error while creating ACME client for existing domain %v", certSpec.Domain)
 		}
 
 		// Fill in cert resource
