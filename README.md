@@ -9,8 +9,8 @@ The code itself however, was entirely reimplemented to use xenolf/lego as the ba
 
 * Manage Kubernetes TLS secrets backed by Let's Encrypt issued certificates.
 * Manage [Let's Encrypt](https://letsencrypt.org) issued certificates based on Kubernetes ThirdParty Resources.
-* Domain validation using ACME [dns-01 challenges](https://letsencrypt.github.io/acme-spec/#rfc.section.7.4).
-* Support for multiple DNS providers via [dns-01 exec plugins](https://github.com/kelseyhightower/dns01-exec-plugins)
+* Domain validation using ACME HTTP-01, SNI-TLS-01 or DNS-01 challenges.
+* Support for multiple challenge providers.
 
 ## Project Goals
 
@@ -23,7 +23,7 @@ The code itself however, was entirely reimplemented to use xenolf/lego as the ba
 ## Requirements
 
 * Kubernetes 1.3+
-* A registered DNS domain hosted by a supported [DNS provider](docs/plugins.md)
+* At least one configured [challenge provider](docs/providers.md)
 
 ## Usage
 
@@ -36,4 +36,4 @@ The code itself however, was entirely reimplemented to use xenolf/lego as the ba
 
 * [Certificate Third Party Resources](docs/certificate-third-party-resource.md)
 * [Certificate Objects](docs/certificate-objects.md)
-* [DNS Provider Plugins](docs/plugins.md)
+* [Challenge providers](docs/providers.md)
