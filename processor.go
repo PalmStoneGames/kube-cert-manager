@@ -181,10 +181,10 @@ func (p *CertProcessor) refreshCertificates(syncInterval time.Duration, wg *sync
 func (p *CertProcessor) processCertificateEvent(c CertificateEvent) error {
 	p.Lock.Lock()
 	defer p.Lock.Unlock()
-	switch {
-	case c.Type == "ADDED":
+	switch c.Type {
+	case "ADDED":
 		return p.processCertificate(&c.Object.Spec)
-	case c.Type == "DELETED":
+	case "DELETED":
 		return p.deleteCertificate(&c.Object.Spec)
 	}
 	return nil
@@ -363,5 +363,23 @@ func (p *CertProcessor) processCertificate(certSpec *CertificateSpec) error {
 }
 
 func (p *CertProcessor) deleteCertificate(certSpec *CertificateSpec) error {
-	return deleteSecret(p.certSecretPrefix + certSpec.Domain)
+	secretName := p.certSecretPrefix + certSpec.Domain
+	log.Printf("[%v] Deleting secret %v", certSpec.Domain, secretName)
+	if err :=  deleteSecret(secretName); err != nil {
+		return errors.Wrapf(err, "Error while deleting secret for domain %v", certSpec.Domain)
+	}
+
+	log.Printf("[%v] Deleting user info and certificate details", certSpec.Domain)
+	err := p.db.Update(func(tx *bolt.Tx) error {
+		key := []byte(certSpec.Domain)
+		tx.Bucket([]byte("user-info")).Delete(key)
+		tx.Bucket([]byte("cert-details")).Delete(key)
+		return nil
+	})
+
+	if err != nil {
+		return errors.Wrapf(err, "Error while saving data to bolt for domain %v", certSpec.Domain)
+	}
+
+	return nil
 }
