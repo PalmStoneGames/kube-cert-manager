@@ -1,0 +1,32 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  labels:
+    app: kube-cert-manager
+  name: kube-cert-manager
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: kube-cert-manager
+      name: kube-cert-manager
+    spec:
+      containers:
+        - name: kube-cert-manager
+          image: us.gcr.io/psg-delta/iron/kube-cert-manager:latest
+          imagePullPolicy: Always
+          args:
+            - "-amce-url=https://acme-staging.api.letsencrypt.org/directory"
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/cert-manager
+        - name: kubectl
+          image: lachlanevenson/k8s-kubectl:v1.3.6
+          args:
+            - "proxy"
+      volumes:
+        - name: "data"
+          gcePersistentDisk:
+            pdName: kube-cert-manager
+            fsType: ext4
