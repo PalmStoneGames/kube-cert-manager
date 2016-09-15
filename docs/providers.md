@@ -54,6 +54,7 @@ See [Using secrets as environment variables](http://kubernetes.io/docs/user-guid
 
 ### Google Cloud
 
+`GCE_PROJECT`: The name of the Google Cloud project to use
 `GOOGLE_APPLICATION_CREDENTIALS`: A path to the credentials file to use
 
 The credentials file itself should be mounted from a seperate secret to a file.
