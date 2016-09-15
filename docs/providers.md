@@ -25,6 +25,7 @@ See [Using secrets as environment variables](http://kubernetes.io/docs/user-guid
 ### Cloudflare
 
 `CLOUDFLARE_EMAIL`: The email of the cloudflare user
+
 `CLOUDFLARE_API_KEY`: The API key corresponding to the email
 
 ### Digital Ocean
@@ -34,18 +35,23 @@ See [Using secrets as environment variables](http://kubernetes.io/docs/user-guid
 ### DNSimple
 
 `DNSIMPLE_EMAIL`: The email fo the DNSimple user
+
 `DNSIMPLE_API_KEY`: The API key corresponding to the email
 
 ### DNS Made Easy
 
 `DNSMADEEASY_API_KEY`: The API key for DNS Made Easy
+
 `DNSMADEEASY_API_SECRET`: The api secret corresponding with the API key
+
 `DNSMADEEASY_SANDBOX`: A boolean flag, if set to true or 1, requests will be sent to the sandbox API
 
 ### Dyn
 
 `DYN_CUSTOMER_NAME`: The customer name of the Dyn user
+
 `DYN_USER_NAME`: The user name of the Dyn user
+
 `DYN_PASSWORD`: The password of the Dyn user
 
 ### Gandi
@@ -55,6 +61,7 @@ See [Using secrets as environment variables](http://kubernetes.io/docs/user-guid
 ### Google Cloud
 
 `GCE_PROJECT`: The name of the Google Cloud project to use
+
 `GOOGLE_APPLICATION_CREDENTIALS`: A path to the credentials file to use
 
 The credentials file itself should be mounted from a seperate secret to a file.
@@ -62,13 +69,17 @@ The credentials file itself should be mounted from a seperate secret to a file.
 ### Namecheap
 
 `NAMECHEAP_API_USER`: The username of the namecheap user
+
 `NAMECHEAP_API_KEY`: The API key corresponding with the namecheap user
 
 ### OVH
 
 `OVH_ENDPOINT`: The URL of the API endpoint to use
+
 `OVH_APPLICATION_KEY`: The application key
+
 `OVH_APPLICATION_SECRET`: The secret corresponding to the application key
+
 `OVH_CONSUMER_KEY`: The consumer key
 
 ### PDNS
@@ -81,8 +92,11 @@ The rfc2136 provider works with any DNS provider implementing the DNS Update rfc
 the TSIG variables need only be set if using TSIG authentication.
 
 `RFC2136_NAMESERVER`: The network address of the provider, in the form of "host" or "host:port"
+
 `RFC2136_TSIG_ALGORITHM`: The algorithm to use for TSIG authentication. 
+
 `RFC2136_TSIG_KEY`: The key to use for TSIG authentication.
+
 `RFC2136_TSIG_SECRET`: The secret to use for TSIG authentication.
 
 ### Amazon Route53
@@ -91,6 +105,7 @@ There are two ways to specify Route53 credentials. Either the credentials can be
 Or the following environment variables can be set:
 
 `AWS_ACCESS_KEY_ID`: The access key ID
+
 `AWS_SECRET_ACCESS_KEY`: The secret corresponding to the access key
 
 ### Vultr
