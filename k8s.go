@@ -24,6 +24,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/xenolf/lego/acme"
+	"io"
 )
 
 const (
@@ -306,7 +307,7 @@ func monitorCertificateEvents() (<-chan CertificateEvent, <-chan error) {
 			for {
 				var event CertificateEvent
 				err = decoder.Decode(&event)
-				if err != nil {
+				if err != nil && err != io.EOF {
 					errc <- err
 					break
 				}
