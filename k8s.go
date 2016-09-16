@@ -307,8 +307,10 @@ func monitorCertificateEvents() (<-chan CertificateEvent, <-chan error) {
 			for {
 				var event CertificateEvent
 				err = decoder.Decode(&event)
-				if err != nil && err != io.EOF {
-					errc <- err
+				if err != nil {
+					if err != io.EOF {
+						errc <- err
+					}
 					break
 				}
 				events <- event
