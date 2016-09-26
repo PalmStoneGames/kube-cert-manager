@@ -85,8 +85,8 @@ func main() {
 	doneChan := make(chan struct{})
 
 	wg.Add(2)
-	p.watchKubernetesEvents(&wg, doneChan)
-	p.refreshCertificates(time.Second*time.Duration(syncInterval), &wg, doneChan)
+	go p.watchKubernetesEvents(&wg, doneChan)
+	go p.refreshCertificates(time.Second*time.Duration(syncInterval), &wg, doneChan)
 
 	log.Println("Kubernetes Certificate Controller started successfully.")
 

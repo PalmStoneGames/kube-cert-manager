@@ -141,41 +141,37 @@ func (p *CertProcessor) syncCertificates(verbose bool) error {
 
 func (p *CertProcessor) watchKubernetesEvents(wg *sync.WaitGroup, doneChan <-chan struct{}) {
 	events, watchErrs := monitorCertificateEvents()
-	go func() {
-		for {
-			select {
-			case event := <-events:
-				err := p.processCertificateEvent(event)
-				if err != nil {
-					log.Printf("Error while processing certificate event: %v", err)
-				}
-			case err := <-watchErrs:
-				log.Printf("Error while watching kubernetes events: %v", err)
-			case <-doneChan:
-				wg.Done()
-				log.Println("Stopped certificate event watcher.")
-				return
+	for {
+		select {
+		case event := <-events:
+			err := p.processCertificateEvent(event)
+			if err != nil {
+				log.Printf("Error while processing certificate event: %v", err)
 			}
+		case err := <-watchErrs:
+			log.Printf("Error while watching kubernetes events: %v", err)
+		case <-doneChan:
+			wg.Done()
+			log.Println("Stopped certificate event watcher.")
+			return
 		}
-	}()
+	}
 }
 
 func (p *CertProcessor) refreshCertificates(syncInterval time.Duration, wg *sync.WaitGroup, doneChan <-chan struct{}) {
-	go func() {
-		for {
-			select {
-			case <-time.After(syncInterval):
-				err := p.syncCertificates(false)
-				if err != nil {
-					log.Printf("Error while synchronizing certificates during refresh: %v", err)
-				}
-			case <-doneChan:
-				wg.Done()
-				log.Println("Stopped refresh loop.")
-				return
+	for {
+		select {
+		case <-time.After(syncInterval):
+			err := p.syncCertificates(false)
+			if err != nil {
+				log.Printf("Error while synchronizing certificates during refresh: %v", err)
 			}
+		case <-doneChan:
+			wg.Done()
+			log.Println("Stopped refresh loop.")
+			return
 		}
-	}()
+	}
 }
 
 func (p *CertProcessor) processCertificateEvent(c CertificateEvent) error {
