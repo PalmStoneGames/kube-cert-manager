@@ -16,11 +16,11 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/json"
 	"encoding/pem"
 	"log"
 	"sync"
 	"time"
-	"encoding/json"
 
 	"github.com/boltdb/bolt"
 	"github.com/pkg/errors"
@@ -365,7 +365,7 @@ func (p *CertProcessor) processCertificate(certSpec *CertificateSpec) error {
 func (p *CertProcessor) deleteCertificate(certSpec *CertificateSpec) error {
 	secretName := p.certSecretPrefix + certSpec.Domain
 	log.Printf("[%v] Deleting secret %v", certSpec.Domain, secretName)
-	if err :=  deleteSecret(secretName); err != nil {
+	if err := deleteSecret(secretName); err != nil {
 		return errors.Wrapf(err, "Error while deleting secret for domain %v", certSpec.Domain)
 	}
 

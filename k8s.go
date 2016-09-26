@@ -14,17 +14,17 @@ package main
 import (
 	"bytes"
 	"crypto"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"time"
-	"encoding/pem"
-	"crypto/x509"
 
 	"github.com/pkg/errors"
 	"github.com/xenolf/lego/acme"
-	"io"
 )
 
 const (
