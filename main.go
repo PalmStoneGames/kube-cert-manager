@@ -64,7 +64,7 @@ func main() {
 	}
 
 	// Initialize bolt
-	if err := os.MkdirAll(dataDir, 0600); err != nil {
+	if err := os.MkdirAll(dataDir, 0700); err != nil {
 		log.Fatalf("Error while creating %v directory: %v", dataDir, err)
 	}
 
