@@ -14,24 +14,24 @@ package main
 import (
 	"bytes"
 	"crypto"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"time"
-	"encoding/pem"
-	"crypto/x509"
 
 	"github.com/pkg/errors"
 	"github.com/xenolf/lego/acme"
-	"io"
 )
 
 const (
-	apiHost                   = "http://127.0.0.1:8001"
-	certificatesEndpoint      = "/apis/stable.k8s.psg.io/v1/namespaces/default/certificates"
-	certificatesWatchEndpoint = "/apis/stable.k8s.psg.io/v1/namespaces/default/certificates?watch=true"
-	secretsEndpoint           = "/api/v1/namespaces/default/secrets"
+	apiHost                 = "http://127.0.0.1:8001"
+	certificatesEndpoint    = "/apis/stable.k8s.psg.io/v1/namespaces/%s/certificates"
+	certificatesEndpointAll = "/apis/stable.k8s.psg.io/v1/certificates"
+	secretsEndpoint         = "/api/v1/namespaces/%s/secrets"
 )
 
 type CertificateEvent struct {
@@ -171,9 +171,9 @@ func (certDetails *ACMECertDetails) ToCertResource() acme.CertificateResource {
 	}
 }
 
-func getSecret(key string) (*Secret, error) {
+func getSecret(namespace string, key string) (*Secret, error) {
 	// Run the http request
-	url := apiHost + secretsEndpoint + "/" + key
+	url := apiHost + namespacedEndpoint(secretsEndpoint, namespace) + "/" + key
 	resp, err := http.Get(url)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Error while running http request on url: %v", url)
@@ -197,7 +197,7 @@ func getSecret(key string) (*Secret, error) {
 	return &secret, nil
 }
 
-func saveSecret(secret *Secret, isUpdate bool) error {
+func saveSecret(namespace string, secret *Secret, isUpdate bool) error {
 	if secret.Metadata["name"] == "" {
 		return errors.New("Secret name must be specified in metadata")
 	}
@@ -213,10 +213,10 @@ func saveSecret(secret *Secret, isUpdate bool) error {
 	var url string
 	var method string
 	if isUpdate {
-		url = apiHost + secretsEndpoint + "/" + secret.Metadata["name"].(string)
+		url = apiHost + namespacedEndpoint(secretsEndpoint, namespace) + "/" + secret.Metadata["name"].(string)
 		method = "PUT"
 	} else {
-		url = apiHost + secretsEndpoint
+		url = apiHost + namespacedEndpoint(secretsEndpoint, namespace)
 		method = "POST"
 	}
 
@@ -242,9 +242,9 @@ func saveSecret(secret *Secret, isUpdate bool) error {
 	return nil
 }
 
-func deleteSecret(key string) error {
+func deleteSecret(namespace string, key string) error {
 	// Create DELETE request
-	url := apiHost + secretsEndpoint + "/" + key
+	url := apiHost + namespacedEndpoint(secretsEndpoint, namespace) + "/" + key
 	req, err := http.NewRequest("DELETE", url, nil)
 	if err != nil {
 		return errors.Wrapf(err, "Error while creating http request for url: %v", url)
@@ -263,12 +263,12 @@ func deleteSecret(key string) error {
 	return nil
 }
 
-func getCertificates() ([]Certificate, error) {
+func getCertificates(endpoint string) ([]Certificate, error) {
 	var resp *http.Response
 	var err error
 
 	for {
-		resp, err = http.Get(apiHost + certificatesEndpoint)
+		resp, err = http.Get(apiHost + endpoint)
 		if err != nil {
 			log.Printf("Error while retrieving certificate: %v. Retrying in 5 seconds", err)
 			time.Sleep(5 * time.Second)
@@ -286,12 +286,12 @@ func getCertificates() ([]Certificate, error) {
 	return certList.Items, nil
 }
 
-func monitorCertificateEvents() (<-chan CertificateEvent, <-chan error) {
+func monitorCertificateEvents(endpoint string) (<-chan CertificateEvent, <-chan error) {
 	events := make(chan CertificateEvent)
 	errc := make(chan error, 1)
 	go func() {
 		for {
-			resp, err := http.Get(apiHost + certificatesWatchEndpoint)
+			resp, err := http.Get(apiHost + endpoint + "?watch=true")
 			if err != nil {
 				errc <- err
 				time.Sleep(5 * time.Second)
@@ -319,4 +319,8 @@ func monitorCertificateEvents() (<-chan CertificateEvent, <-chan error) {
 	}()
 
 	return events, errc
+}
+
+func namespacedEndpoint(endpoint string, namespace string) string {
+	return fmt.Sprintf(endpoint, namespace)
 }

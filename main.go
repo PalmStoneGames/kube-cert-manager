@@ -19,12 +19,28 @@ import (
 	"os"
 	"os/signal"
 	"path"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
 
 	"github.com/boltdb/bolt"
 )
+
+type listFlag []string
+
+func (lf *listFlag) String() string {
+	return strings.Join([]string(*lf), ",")
+}
+
+func (lf *listFlag) Set(s string) error {
+	if len(s) == 0 {
+		*lf = []string{}
+		return nil
+	}
+	*lf = strings.Split(s, ",")
+	return nil
+}
 
 func main() {
 	// Parse command line
@@ -33,12 +49,14 @@ func main() {
 		syncInterval     int
 		certSecretPrefix string
 		dataDir          string
+		namespaces       []string
 	)
 
 	flag.StringVar(&acmeURL, "acme-url", "", "The URL to the acme directory to use")
 	flag.StringVar(&certSecretPrefix, "cert-secret-prefix", "", "The prefix to use for certificate secrets")
 	flag.IntVar(&syncInterval, "sync-interval", 30, "Sync interval in seconds.")
 	flag.StringVar(&dataDir, "data-dir", "/var/lib/cert-manager", "Data directory path.")
+	flag.Var((*listFlag)(&namespaces), "namespaces", "List of namespaces to monitor. The empty list means all namespaces")
 	flag.Parse()
 
 	if acmeURL == "" {
@@ -73,7 +91,7 @@ func main() {
 	log.Println("Starting Kubernetes Certificate Controller...")
 
 	// Create the processor
-	p := NewCertProcessor(acmeURL, certSecretPrefix, db)
+	p := NewCertProcessor(acmeURL, certSecretPrefix, namespaces, db)
 
 	// Do a synchronous certificate sync for startup
 	if err := p.syncCertificates(true); err != nil {
@@ -84,9 +102,17 @@ func main() {
 	wg := sync.WaitGroup{}
 	doneChan := make(chan struct{})
 
-	wg.Add(2)
-	p.watchKubernetesEvents(&wg, doneChan)
-	p.refreshCertificates(time.Second*time.Duration(syncInterval), &wg, doneChan)
+	if len(p.namespaces) == 0 {
+		wg.Add(1)
+		go p.watchKubernetesEvents(certificatesEndpointAll, &wg, doneChan)
+	} else {
+		for _, namespace := range p.namespaces {
+			wg.Add(1)
+			go p.watchKubernetesEvents(namespacedEndpoint(certificatesEndpoint, namespace), &wg, doneChan)
+		}
+	}
+	wg.Add(1)
+	go p.refreshCertificates(time.Second*time.Duration(syncInterval), &wg, doneChan)
 
 	log.Println("Kubernetes Certificate Controller started successfully.")
 
