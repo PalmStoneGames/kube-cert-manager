@@ -290,8 +290,9 @@ func monitorCertificateEvents(endpoint string) (<-chan CertificateEvent, <-chan 
 	events := make(chan CertificateEvent)
 	errc := make(chan error, 1)
 	go func() {
+		resourceVersion := "0"
 		for {
-			resp, err := http.Get(apiHost + endpoint + "?watch=true")
+			resp, err := http.Get(apiHost + endpoint + "?watch=true&resourceVersion=" + resourceVersion)
 			if err != nil {
 				errc <- err
 				time.Sleep(5 * time.Second)
@@ -313,6 +314,7 @@ func monitorCertificateEvents(endpoint string) (<-chan CertificateEvent, <-chan 
 					}
 					break
 				}
+				resourceVersion = event.Object.Metadata["resourceVersion"]
 				events <- event
 			}
 		}
