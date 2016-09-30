@@ -455,8 +455,9 @@ func monitorEvents(endpoint string) (<-chan WatchEvent, <-chan error) {
 	events := make(chan WatchEvent)
 	errc := make(chan error, 1)
 	go func() {
+		resourceVersion := "0"
 		for {
-			resp, err := http.Get(apiHost + endpoint + "?watch=true")
+			resp, err := http.Get(apiHost + endpoint + "?watch=true&resourceVersion=" + resourceVersion)
 			if err != nil {
 				errc <- err
 				time.Sleep(5 * time.Second)
@@ -478,6 +479,16 @@ func monitorEvents(endpoint string) (<-chan WatchEvent, <-chan error) {
 					}
 					break
 				}
+				var header struct {
+					Metadata struct {
+						ResourceVersion string `json:"resourceVersion"`
+					} `json:"metadata"`
+				}
+				if err := json.Unmarshal([]byte(event.Object), &header); err != nil {
+					errc <- err
+					break
+				}
+				resourceVersion = header.Metadata.ResourceVersion
 				events <- event
 			}
 		}
