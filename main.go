@@ -93,11 +93,6 @@ func main() {
 	// Create the processor
 	p := NewCertProcessor(acmeURL, certSecretPrefix, namespaces, db)
 
-	// Do a synchronous certificate sync for startup
-	if err := p.syncCertificates(true); err != nil {
-		log.Fatalf("Error while syncing certificates: %v", err)
-	}
-
 	// Asynchronously start watching and refreshing certs
 	wg := sync.WaitGroup{}
 	doneChan := make(chan struct{})
