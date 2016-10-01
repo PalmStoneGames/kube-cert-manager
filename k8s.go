@@ -47,9 +47,10 @@ type Certificate struct {
 }
 
 type CertificateSpec struct {
-	Domain   string `json:"domain"`
-	Provider string `json:"provider"`
-	Email    string `json:"email"`
+	Domain     string `json:"domain"`
+	Provider   string `json:"provider"`
+	Email      string `json:"email"`
+	SecretName string `json:"secretName"`
 }
 
 type CertificateList struct {
@@ -108,9 +109,8 @@ func (u *ACMEUserData) GetPrivateKey() crypto.PrivateKey {
 	return privateKey
 }
 
-func (c *ACMECertData) ToSecret(prefix string) (*Secret, error) {
+func (c *ACMECertData) ToSecret() *Secret {
 	metadata := make(map[string]interface{})
-	metadata["name"] = prefix + c.DomainName
 	metadata["labels"] = map[string]string{"domain": c.DomainName}
 
 	data := make(map[string][]byte)
@@ -123,7 +123,7 @@ func (c *ACMECertData) ToSecret(prefix string) (*Secret, error) {
 		Kind:       "Secret",
 		Metadata:   metadata,
 		Type:       "kubernetes.io/tls",
-	}, nil
+	}
 }
 
 func NewACMECertDataFromSecret(s *Secret) (ACMECertData, error) {

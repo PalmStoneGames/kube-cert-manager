@@ -13,6 +13,10 @@ Before you can create a Certificate object you must create the [Certificate Thir
 * spec.email - The email address used for a Let's Encrypt registration.
 * spec.provider - The name of the challenge provider plugin. (see [Configuring your challenge provider(s)](providers.md))
 
+## Optional Fields
+
+- spec.secretName - The name of the created secret. If not set or empty, a name will be generated based on the domain name.
+
 ### Example
 
 The following Kubernetes Certificate configuration assume the following:
