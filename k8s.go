@@ -28,11 +28,19 @@ import (
 )
 
 const (
-	apiHost                 = "http://127.0.0.1:8001"
-	certificatesEndpoint    = "/apis/stable.k8s.psg.io/v1/namespaces/%s/certificates"
-	certificatesEndpointAll = "/apis/stable.k8s.psg.io/v1/certificates"
-	secretsEndpoint         = "/api/v1/namespaces/%s/secrets"
+	apiHost            = "http://127.0.0.1:8001"
+	certEndpoint       = "/apis/stable.k8s.psg.io/v1/namespaces/%s/certificates"
+	certEndpointAll    = "/apis/stable.k8s.psg.io/v1/certificates"
+	ingressEndpoint    = "/apis/extensions/v1beta1/namespaces/%s/ingresses"
+	ingressEndpointAll = "/apis/extensions/v1beta1/ingresses"
+	secretsEndpoint    = "/api/v1/namespaces/%s/secrets"
+	eventsEndpoint     = "/api/v1/namespaces/%s/events"
 )
+
+type WatchEvent struct {
+	Type   string          `json:"type"`
+	Object json.RawMessage `json:"object"`
+}
 
 type CertificateEvent struct {
 	Type   string      `json:"type"`
@@ -40,10 +48,14 @@ type CertificateEvent struct {
 }
 
 type Certificate struct {
-	ApiVersion string            `json:"apiVersion"`
-	Kind       string            `json:"kind"`
-	Metadata   map[string]string `json:"metadata"`
-	Spec       CertificateSpec   `json:"spec"`
+	ApiVersion string              `json:"apiVersion"`
+	Kind       string              `json:"kind"`
+	Metadata   CertificateMetadata `json:"metadata"`
+	Spec       CertificateSpec     `json:"spec"`
+}
+
+type CertificateMetadata struct {
+	Namespace string `json:"namespace"`
 }
 
 type CertificateSpec struct {
@@ -72,6 +84,112 @@ type ACMECertData struct {
 	DomainName string
 	Cert       []byte
 	PrivateKey []byte
+}
+
+type IngressEvent struct {
+	Type   string  `json:"type"`
+	Object Ingress `json:"object"`
+}
+
+type Ingress struct {
+	Metadata IngressMetadata `json:"metadata"`
+	Spec     IngressSpec     `json:"spec"`
+}
+
+type IngressMetadata struct {
+	Name            string            `json:"name"`
+	Namespace       string            `json:"namespace"`
+	UID             string            `json:"uid"`
+	ResourceVersion string            `json:"resourceVersion"`
+	Annotations     map[string]string `json:"annotations"`
+}
+
+type IngressSpec struct {
+	TLS []IngressTLS `json:"tls"`
+}
+
+type IngressTLS struct {
+	Hosts      []string `json:"hosts"`
+	SecretName string   `json:"secretName"`
+}
+
+type Event struct {
+	Kind           string          `json:"kind"`
+	ApiVersion     string          `json:"apiVersion"`
+	Metadata       EventMetadata   `json:"metadata"`
+	InvolvedObject ObjectReference `json:"involvedObject"`
+	Reason         string          `json:"reason"`
+	Message        string          `json:"message"`
+	Source         EventSource     `json:"source"`
+	FirstTimestamp string          `json:"firstTimestamp,omitempty"`
+	LastTimestamp  string          `json:"lastTimestamp,omitempty"`
+	Count          int             `json:"count,omitempty"`
+	Type           string          `json:"type"`
+}
+
+type ObjectReference struct {
+	Kind            string `json:"kind,omitempty"`
+	Namespace       string `json:"namespace,omitempty"`
+	Name            string `json:"name,omitempty"`
+	UID             string `json:"uid,omitempty"`
+	ApiVersion      string `json:"apiVersion,omitempty"`
+	ResourceVersion string `json:"resourceVersion,omitempty"`
+	FieldPath       string `json:"fieldPath,omitempty"`
+}
+
+type EventSource struct {
+	Component string `json:"component,omitempty"`
+	Host      string `json:"host,omitempty"`
+}
+
+type EventMetadata struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+}
+
+func ingressReference(ing Ingress, path string) ObjectReference {
+	return ObjectReference{
+		Kind:            "Ingress",
+		Namespace:       ing.Metadata.Namespace,
+		Name:            ing.Metadata.Name,
+		UID:             ing.Metadata.UID,
+		ResourceVersion: ing.Metadata.ResourceVersion,
+		FieldPath:       path,
+	}
+}
+
+func createEvent(ev Event) {
+	now := time.Now()
+	ev.Metadata.Name = fmt.Sprintf("%s.%x", ev.InvolvedObject.Name, now.UnixNano())
+	if ev.Kind == "" {
+		ev.Kind = "Event"
+	}
+	if ev.ApiVersion == "" {
+		ev.ApiVersion = "v1"
+	}
+	if ev.FirstTimestamp == "" {
+		ev.FirstTimestamp = now.Format(time.RFC3339Nano)
+	}
+	if ev.LastTimestamp == "" {
+		ev.LastTimestamp = now.Format(time.RFC3339Nano)
+	}
+	if ev.Count == 0 {
+		ev.Count = 1
+	}
+	b, err := json.Marshal(ev)
+	if err != nil {
+		log.Println("internal error:", err)
+		return
+	}
+	resp, err := http.Post(apiHost+namespacedEndpoint(eventsEndpoint, ev.Metadata.Namespace), "application/json", bytes.NewReader(b))
+	if err != nil {
+		log.Println("internal error:", err)
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		log.Println("unexpected HTTP status code while creating event:", resp.StatusCode)
+	}
 }
 
 type ACMEUserData struct {
@@ -264,6 +382,7 @@ func deleteSecret(namespace string, key string) error {
 }
 
 func getCertificates(endpoint string) ([]Certificate, error) {
+	// FIXME(dh): return the synthetic certs created by Ingress
 	var resp *http.Response
 	var err error
 
@@ -286,8 +405,8 @@ func getCertificates(endpoint string) ([]Certificate, error) {
 	return certList.Items, nil
 }
 
-func monitorCertificateEvents(endpoint string) (<-chan CertificateEvent, <-chan error) {
-	events := make(chan CertificateEvent)
+func monitorEvents(endpoint string) (<-chan WatchEvent, <-chan error) {
+	events := make(chan WatchEvent)
 	errc := make(chan error, 1)
 	go func() {
 		for {
@@ -305,7 +424,7 @@ func monitorCertificateEvents(endpoint string) (<-chan CertificateEvent, <-chan 
 
 			decoder := json.NewDecoder(resp.Body)
 			for {
-				var event CertificateEvent
+				var event WatchEvent
 				err = decoder.Decode(&event)
 				if err != nil {
 					if err != io.EOF {
@@ -314,6 +433,56 @@ func monitorCertificateEvents(endpoint string) (<-chan CertificateEvent, <-chan 
 					break
 				}
 				events <- event
+			}
+		}
+	}()
+
+	return events, errc
+}
+
+func monitorCertificateEvents(endpoint string) (<-chan CertificateEvent, <-chan error) {
+	rawEvents, rawErrc := monitorEvents(endpoint)
+	events := make(chan CertificateEvent)
+	errc := make(chan error, 1)
+	go func() {
+		for {
+			select {
+			case ev := <-rawEvents:
+				var event CertificateEvent
+				event.Type = ev.Type
+				err := json.Unmarshal([]byte(ev.Object), &event.Object)
+				if err != nil {
+					errc <- err
+					continue
+				}
+				events <- event
+			case err := <-rawErrc:
+				errc <- err
+			}
+		}
+	}()
+
+	return events, errc
+}
+
+func monitorIngressEvents(endpoint string) (<-chan IngressEvent, <-chan error) {
+	rawEvents, rawErrc := monitorEvents(endpoint)
+	events := make(chan IngressEvent)
+	errc := make(chan error, 1)
+	go func() {
+		for {
+			select {
+			case ev := <-rawEvents:
+				var event IngressEvent
+				event.Type = ev.Type
+				err := json.Unmarshal([]byte(ev.Object), &event.Object)
+				if err != nil {
+					errc <- err
+					continue
+				}
+				events <- event
+			case err := <-rawErrc:
+				errc <- err
 			}
 		}
 	}()
