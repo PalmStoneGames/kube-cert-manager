@@ -35,6 +35,8 @@ const (
 	ingressEndpointAll = "/apis/extensions/v1beta1/ingresses"
 	secretsEndpoint    = "/api/v1/namespaces/%s/secrets"
 	eventsEndpoint     = "/api/v1/namespaces/%s/events"
+
+	annotationNamespace = "stable.k8s.psg.io/kcm"
 )
 
 type WatchEvent struct {
@@ -230,6 +232,9 @@ func (u *ACMEUserData) GetPrivateKey() crypto.PrivateKey {
 func (c *ACMECertData) ToSecret() *Secret {
 	metadata := make(map[string]interface{})
 	metadata["labels"] = map[string]string{"domain": c.DomainName}
+	metadata["annotations"] = map[string]string{
+		annotationNamespace: "true",
+	}
 
 	data := make(map[string][]byte)
 	data["tls.crt"] = c.Cert

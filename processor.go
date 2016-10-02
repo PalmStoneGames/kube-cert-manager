@@ -426,15 +426,15 @@ func (p *CertProcessor) processIngressEvent(c IngressEvent) {
 	defer p.Lock.Unlock()
 	switch c.Type {
 	case "ADDED", "MODIFIED":
-		if c.Object.Metadata.Annotations["stable.k8s.psg.io/kcm.enabled"] != "true" {
+		if c.Object.Metadata.Annotations[annotationNamespace+".enabled"] != "true" {
 			return
 		}
 		source := EventSource{
 			Component: "kube-cert-manager",
 		}
 		var certs []Certificate
-		provider := c.Object.Metadata.Annotations["stable.k8s.psg.io/kcm.provider"]
-		email := c.Object.Metadata.Annotations["stable.k8s.psg.io/kcm.email"]
+		provider := c.Object.Metadata.Annotations[annotationNamespace+".provider"]
+		email := c.Object.Metadata.Annotations[annotationNamespace+".email"]
 		for i, tls := range c.Object.Spec.TLS {
 			if len(tls.Hosts) == 0 {
 				continue
