@@ -466,6 +466,27 @@ func (p *CertProcessor) processCertificate(cert Certificate) (processed bool, er
 		return false, errors.Wrapf(err, "Error while saving secret for domain %v", cert.Spec.Domain)
 	}
 
+	msg := "Created certificate"
+	if isUpdate {
+		msg = "Updated certificate"
+	}
+	createEvent(Event{
+		Metadata: Metadata{
+			Namespace: namespace,
+		},
+		InvolvedObject: ObjectReference{
+			Kind:      "Secret",
+			Namespace: namespace,
+			Name:      s.Metadata.Name,
+		},
+		Reason:  "ACMEUpdated",
+		Message: msg,
+		Source: EventSource{
+			Component: "kube-cert-manager",
+		},
+		Type: "Normal",
+	})
+
 	return true, nil
 }
 
