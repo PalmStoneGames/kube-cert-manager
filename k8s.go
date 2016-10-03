@@ -406,7 +406,6 @@ func getSecrets(endpoint string) ([]Secret, error) {
 }
 
 func getCertificates(endpoint string) ([]Certificate, error) {
-	// FIXME(dh): return the synthetic certs created by Ingress
 	var resp *http.Response
 	var err error
 

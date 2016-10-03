@@ -487,8 +487,6 @@ func (p *CertProcessor) deleteCertificate(cert Certificate) error {
 }
 
 func (p *CertProcessor) gcSecrets() error {
-	// FIXME(dh): consider secrets created by ingresses
-
 	// Fetch secrets before certificates. That way, if a race occurs,
 	// we will only fail to delete a secret, not accidentally delete
 	// one that's still referenced.
@@ -499,6 +497,13 @@ func (p *CertProcessor) gcSecrets() error {
 	certs, err := p.getCertificates()
 	if err != nil {
 		return err
+	}
+	ingresses, err := p.getIngresses()
+	if err != nil {
+		return err
+	}
+	for _, ingress := range ingresses {
+		certs = append(certs, ingressCertificates(ingress)...)
 	}
 	usedSecrets := map[string]bool{}
 	for _, cert := range certs {
@@ -511,6 +516,7 @@ func (p *CertProcessor) gcSecrets() error {
 		if usedSecrets[secret.Metadata.Namespace+" "+secret.Metadata.Name] {
 			continue
 		}
+		log.Printf("Evicting unused secret %s in namespace %s", secret.Metadata.Name, secret.Metadata.Namespace)
 		if err := deleteSecret(secret.Metadata.Namespace, secret.Metadata.Name); err != nil {
 			return err
 		}
@@ -530,6 +536,38 @@ func (p *CertProcessor) processIngressEvent(c IngressEvent) {
 		// secrets may be referenced in other Ingresses, or in
 		// Certificate objects.
 	}
+}
+
+func ingressCertificates(ingress Ingress) []Certificate {
+	if ingress.Metadata.Annotations[annotationNamespace+".enabled"] != "true" {
+		return nil
+	}
+	var certs []Certificate
+	provider := ingress.Metadata.Annotations[annotationNamespace+".provider"]
+	email := ingress.Metadata.Annotations[annotationNamespace+".email"]
+	if provider == "" || email == "" {
+		return nil
+	}
+	for _, tls := range ingress.Spec.TLS {
+		if len(tls.Hosts) != 1 {
+			continue
+		}
+		cert := Certificate{
+			APIVersion: "v1",
+			Kind:       "Certificate",
+			Metadata: Metadata{
+				Namespace: ingress.Metadata.Namespace,
+			},
+			Spec: CertificateSpec{
+				Domain:     tls.Hosts[0],
+				Provider:   provider,
+				Email:      email,
+				SecretName: tls.SecretName,
+			},
+		}
+		certs = append(certs, cert)
+	}
+	return certs
 }
 
 func (p *CertProcessor) processIngress(ingress Ingress) {
