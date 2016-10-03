@@ -399,7 +399,7 @@ func (p *CertProcessor) deleteCertificate(cert Certificate) error {
 
 func certificateNamespace(c Certificate) string {
 	// Resolve namespace
-	if namespace, ok := c.Metadata["namespace"]; ok {
+	if namespace, ok := c.Metadata["namespace"].(string); ok {
 		return namespace
 	}
 	return "default"

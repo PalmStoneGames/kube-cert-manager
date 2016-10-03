@@ -40,10 +40,10 @@ type CertificateEvent struct {
 }
 
 type Certificate struct {
-	ApiVersion string            `json:"apiVersion"`
-	Kind       string            `json:"kind"`
-	Metadata   map[string]string `json:"metadata"`
-	Spec       CertificateSpec   `json:"spec"`
+	ApiVersion string                 `json:"apiVersion"`
+	Kind       string                 `json:"kind"`
+	Metadata   map[string]interface{} `json:"metadata"`
+	Spec       CertificateSpec        `json:"spec"`
 }
 
 type CertificateSpec struct {
@@ -53,10 +53,10 @@ type CertificateSpec struct {
 }
 
 type CertificateList struct {
-	ApiVersion string            `json:"apiVersion"`
-	Kind       string            `json:"kind"`
-	Metadata   map[string]string `json:"metadata"`
-	Items      []Certificate     `json:"items"`
+	ApiVersion string                 `json:"apiVersion"`
+	Kind       string                 `json:"kind"`
+	Metadata   map[string]interface{} `json:"metadata"`
+	Items      []Certificate          `json:"items"`
 }
 
 type Secret struct {
