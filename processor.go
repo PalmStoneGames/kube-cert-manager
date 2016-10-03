@@ -487,6 +487,9 @@ func (p *CertProcessor) deleteCertificate(cert Certificate) error {
 }
 
 func (p *CertProcessor) gcSecrets() error {
+	p.Lock.Lock()
+	defer p.Lock.Unlock()
+
 	// Fetch secrets before certificates. That way, if a race occurs,
 	// we will only fail to delete a secret, not accidentally delete
 	// one that's still referenced.
