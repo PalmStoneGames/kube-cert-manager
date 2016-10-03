@@ -117,7 +117,7 @@ func main() {
 		}
 	}
 	wg.Add(1)
-	go p.refreshCertificates(time.Second*time.Duration(syncInterval), &wg, doneChan)
+	go p.maintenance(time.Second*time.Duration(syncInterval), &wg, doneChan)
 
 	log.Println("Kubernetes Certificate Controller started successfully.")
 

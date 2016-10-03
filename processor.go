@@ -259,17 +259,18 @@ func (p *CertProcessor) watchKubernetesEvents(certEndpoint, ingressEndpoint stri
 	}
 }
 
-func (p *CertProcessor) refreshCertificates(syncInterval time.Duration, wg *sync.WaitGroup, doneChan <-chan struct{}) {
+func (p *CertProcessor) maintenance(syncInterval time.Duration, wg *sync.WaitGroup, doneChan <-chan struct{}) {
 	for {
 		select {
 		case <-time.After(syncInterval):
-			err := p.syncCertificates()
-			if err != nil {
-				log.Printf("Error while synchronizing certificates during refresh: %v", err)
+			if err := p.syncCertificates(); err != nil {
+				log.Printf("Error while synchronizing certificates during refresh: %s", err)
 			}
-			err = p.syncIngresses()
-			if err != nil {
-				log.Printf("Error while synchronizing ingresses during refresh: %v", err)
+			if err := p.syncIngresses(); err != nil {
+				log.Printf("Error while synchronizing ingresses during refresh: %s", err)
+			}
+			if err := p.gcSecrets(); err != nil {
+				log.Printf("Error cleaning up secrets: %s", err)
 			}
 		case <-doneChan:
 			wg.Done()
@@ -286,8 +287,6 @@ func (p *CertProcessor) processCertificateEvent(c CertificateEvent) error {
 	case "ADDED":
 		_, err := p.processCertificate(c.Object)
 		return err
-	case "DELETED":
-		return p.deleteCertificate(c.Object)
 	}
 	return nil
 }
@@ -533,11 +532,6 @@ func (p *CertProcessor) processIngressEvent(c IngressEvent) {
 	switch c.Type {
 	case "ADDED", "MODIFIED":
 		p.processIngress(c.Object)
-	case "DELETED":
-		// TODO(dh): clean up unused certs. We can't blindly delete
-		// the certs for all listed domains, as the same domains and
-		// secrets may be referenced in other Ingresses, or in
-		// Certificate objects.
 	}
 }
 
