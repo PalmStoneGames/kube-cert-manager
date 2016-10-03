@@ -560,7 +560,7 @@ func (p *CertProcessor) processIngress(ingress Ingress) {
 			continue
 		}
 		cert := Certificate{
-			ApiVersion: "v1",
+			APIVersion: "v1",
 			Kind:       "Certificate",
 			Metadata: Metadata{
 				Namespace: ingress.Metadata.Namespace,

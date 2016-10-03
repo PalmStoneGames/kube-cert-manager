@@ -60,7 +60,7 @@ type CertificateEvent struct {
 }
 
 type Certificate struct {
-	ApiVersion string          `json:"apiVersion"`
+	APIVersion string          `json:"apiVersion"`
 	Kind       string          `json:"kind"`
 	Metadata   Metadata        `json:"metadata"`
 	Spec       CertificateSpec `json:"spec"`
@@ -74,7 +74,7 @@ type CertificateSpec struct {
 }
 
 type CertificateList struct {
-	ApiVersion string        `json:"apiVersion"`
+	APIVersion string        `json:"apiVersion"`
 	Kind       string        `json:"kind"`
 	Metadata   Metadata      `json:"metadata"`
 	Items      []Certificate `json:"items"`
@@ -82,14 +82,14 @@ type CertificateList struct {
 
 type Secret struct {
 	Kind       string            `json:"kind"`
-	ApiVersion string            `json:"apiVersion"`
+	APIVersion string            `json:"apiVersion"`
 	Metadata   Metadata          `json:"metadata"`
 	Data       map[string][]byte `json:"data"`
 	Type       string            `json:"type"`
 }
 
 type SecretList struct {
-	ApiVersion string   `json:"apiVersion"`
+	APIVersion string   `json:"apiVersion"`
 	Kind       string   `json:"kind"`
 	Metadata   Metadata `json:"metadata"`
 	Items      []Secret `json:"items"`
@@ -121,7 +121,7 @@ type IngressTLS struct {
 }
 
 type IngressList struct {
-	ApiVersion string    `json:"apiVersion"`
+	APIVersion string    `json:"apiVersion"`
 	Kind       string    `json:"kind"`
 	Metadata   Metadata  `json:"metadata"`
 	Items      []Ingress `json:"items"`
@@ -129,7 +129,7 @@ type IngressList struct {
 
 type Event struct {
 	Kind           string          `json:"kind"`
-	ApiVersion     string          `json:"apiVersion"`
+	APIVersion     string          `json:"apiVersion"`
 	Metadata       Metadata        `json:"metadata"`
 	InvolvedObject ObjectReference `json:"involvedObject"`
 	Reason         string          `json:"reason"`
@@ -146,7 +146,7 @@ type ObjectReference struct {
 	Namespace       string `json:"namespace,omitempty"`
 	Name            string `json:"name,omitempty"`
 	UID             string `json:"uid,omitempty"`
-	ApiVersion      string `json:"apiVersion,omitempty"`
+	APIVersion      string `json:"apiVersion,omitempty"`
 	ResourceVersion string `json:"resourceVersion,omitempty"`
 	FieldPath       string `json:"fieldPath,omitempty"`
 }
@@ -173,8 +173,8 @@ func createEvent(ev Event) {
 	if ev.Kind == "" {
 		ev.Kind = "Event"
 	}
-	if ev.ApiVersion == "" {
-		ev.ApiVersion = "v1"
+	if ev.APIVersion == "" {
+		ev.APIVersion = "v1"
 	}
 	if ev.FirstTimestamp == "" {
 		ev.FirstTimestamp = now.Format(time.RFC3339Nano)
@@ -248,7 +248,7 @@ func (c *ACMECertData) ToSecret() *Secret {
 	data["tls.key"] = c.PrivateKey
 
 	return &Secret{
-		ApiVersion: "v1",
+		APIVersion: "v1",
 		Data:       data,
 		Kind:       "Secret",
 		Metadata:   metadata,
