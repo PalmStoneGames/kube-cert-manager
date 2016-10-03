@@ -548,7 +548,7 @@ func (p *CertProcessor) processIngress(ingress Ingress) {
 		}
 		if len(tls.Hosts) > 1 {
 			createEvent(Event{
-				Metadata: EventMetadata{
+				Metadata: Metadata{
 					Namespace: ingress.Metadata.Namespace,
 				},
 				InvolvedObject: ingressReference(ingress, fmt.Sprintf("spec.tls[%d]", i)),
@@ -562,7 +562,7 @@ func (p *CertProcessor) processIngress(ingress Ingress) {
 		cert := Certificate{
 			ApiVersion: "v1",
 			Kind:       "Certificate",
-			Metadata: CertificateMetadata{
+			Metadata: Metadata{
 				Namespace: ingress.Metadata.Namespace,
 			},
 			Spec: CertificateSpec{
@@ -576,7 +576,7 @@ func (p *CertProcessor) processIngress(ingress Ingress) {
 	}
 	if len(certs) > 0 && (provider == "" || email == "") {
 		createEvent(Event{
-			Metadata: EventMetadata{
+			Metadata: Metadata{
 				Namespace: ingress.Metadata.Namespace,
 			},
 			InvolvedObject: ingressReference(ingress, ""),
@@ -592,7 +592,7 @@ func (p *CertProcessor) processIngress(ingress Ingress) {
 		processed, err := p.processCertificate(cert)
 		if err != nil {
 			createEvent(Event{
-				Metadata: EventMetadata{
+				Metadata: Metadata{
 					Namespace: ingress.Metadata.Namespace,
 				},
 				InvolvedObject: ingressReference(ingress, ""),
@@ -605,7 +605,7 @@ func (p *CertProcessor) processIngress(ingress Ingress) {
 		}
 		if processed {
 			createEvent(Event{
-				Metadata: EventMetadata{
+				Metadata: Metadata{
 					Namespace: ingress.Metadata.Namespace,
 				},
 				InvolvedObject: ingressReference(ingress, ""),

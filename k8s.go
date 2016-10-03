@@ -40,6 +40,15 @@ const (
 	annotationNamespace = "stable.k8s.psg.io/kcm"
 )
 
+type Metadata struct {
+	Name            string            `json:"name,omitempty"`
+	Namespace       string            `json:"namespace,omitempty"`
+	Annotations     map[string]string `json:"annotations,omitempty"`
+	Labels          map[string]string `json:"labels,omitempty"`
+	ResourceVersion string            `json:"resourceVersion,omitempty"`
+	UID             string            `json:"uid,omitempty"`
+}
+
 type WatchEvent struct {
 	Type   string          `json:"type"`
 	Object json.RawMessage `json:"object"`
@@ -51,14 +60,10 @@ type CertificateEvent struct {
 }
 
 type Certificate struct {
-	ApiVersion string              `json:"apiVersion"`
-	Kind       string              `json:"kind"`
-	Metadata   CertificateMetadata `json:"metadata"`
-	Spec       CertificateSpec     `json:"spec"`
-}
-
-type CertificateMetadata struct {
-	Namespace string `json:"namespace"`
+	ApiVersion string          `json:"apiVersion"`
+	Kind       string          `json:"kind"`
+	Metadata   Metadata        `json:"metadata"`
+	Spec       CertificateSpec `json:"spec"`
 }
 
 type CertificateSpec struct {
@@ -69,32 +74,25 @@ type CertificateSpec struct {
 }
 
 type CertificateList struct {
-	ApiVersion string            `json:"apiVersion"`
-	Kind       string            `json:"kind"`
-	Metadata   map[string]string `json:"metadata"`
-	Items      []Certificate     `json:"items"`
+	ApiVersion string        `json:"apiVersion"`
+	Kind       string        `json:"kind"`
+	Metadata   Metadata      `json:"metadata"`
+	Items      []Certificate `json:"items"`
 }
 
 type Secret struct {
 	Kind       string            `json:"kind"`
 	ApiVersion string            `json:"apiVersion"`
-	Metadata   SecretMetadata    `json:"metadata"`
+	Metadata   Metadata          `json:"metadata"`
 	Data       map[string][]byte `json:"data"`
 	Type       string            `json:"type"`
 }
 
-type SecretMetadata struct {
-	Name        string            `json:"name"`
-	Namespace   string            `json:"namespace"`
-	Labels      map[string]string `json:"labels"`
-	Annotations map[string]string `json:"annotations"`
-}
-
 type SecretList struct {
-	ApiVersion string            `json:"apiVersion"`
-	Kind       string            `json:"kind"`
-	Metadata   map[string]string `json:"metadata"`
-	Items      []Secret          `json:"items"`
+	ApiVersion string   `json:"apiVersion"`
+	Kind       string   `json:"kind"`
+	Metadata   Metadata `json:"metadata"`
+	Items      []Secret `json:"items"`
 }
 
 type ACMECertData struct {
@@ -109,16 +107,8 @@ type IngressEvent struct {
 }
 
 type Ingress struct {
-	Metadata IngressMetadata `json:"metadata"`
-	Spec     IngressSpec     `json:"spec"`
-}
-
-type IngressMetadata struct {
-	Name            string            `json:"name"`
-	Namespace       string            `json:"namespace"`
-	UID             string            `json:"uid"`
-	ResourceVersion string            `json:"resourceVersion"`
-	Annotations     map[string]string `json:"annotations"`
+	Metadata Metadata    `json:"metadata"`
+	Spec     IngressSpec `json:"spec"`
 }
 
 type IngressSpec struct {
@@ -131,16 +121,16 @@ type IngressTLS struct {
 }
 
 type IngressList struct {
-	ApiVersion string            `json:"apiVersion"`
-	Kind       string            `json:"kind"`
-	Metadata   map[string]string `json:"metadata"`
-	Items      []Ingress         `json:"items"`
+	ApiVersion string    `json:"apiVersion"`
+	Kind       string    `json:"kind"`
+	Metadata   Metadata  `json:"metadata"`
+	Items      []Ingress `json:"items"`
 }
 
 type Event struct {
 	Kind           string          `json:"kind"`
 	ApiVersion     string          `json:"apiVersion"`
-	Metadata       EventMetadata   `json:"metadata"`
+	Metadata       Metadata        `json:"metadata"`
 	InvolvedObject ObjectReference `json:"involvedObject"`
 	Reason         string          `json:"reason"`
 	Message        string          `json:"message"`
@@ -164,11 +154,6 @@ type ObjectReference struct {
 type EventSource struct {
 	Component string `json:"component,omitempty"`
 	Host      string `json:"host,omitempty"`
-}
-
-type EventMetadata struct {
-	Name      string `json:"name"`
-	Namespace string `json:"namespace"`
 }
 
 func ingressReference(ing Ingress, path string) ObjectReference {
@@ -252,7 +237,7 @@ func (u *ACMEUserData) GetPrivateKey() crypto.PrivateKey {
 }
 
 func (c *ACMECertData) ToSecret() *Secret {
-	var metadata SecretMetadata
+	var metadata Metadata
 	metadata.Labels = map[string]string{"domain": c.DomainName}
 	metadata.Annotations = map[string]string{
 		annotationNamespace: "true",
