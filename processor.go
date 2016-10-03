@@ -156,6 +156,47 @@ func (p *CertProcessor) syncCertificates(verbose bool) error {
 	return nil
 }
 
+func (p *CertProcessor) getIngresses() ([]Ingress, error) {
+	var ingresses []Ingress
+	if len(p.namespaces) == 0 {
+		var err error
+		ingresses, err = getIngresses(ingressEndpointAll)
+		if err != nil {
+			return nil, errors.Wrap(err, "Error while fetching ingress list")
+		}
+	} else {
+		for _, namespace := range p.namespaces {
+			igs, err := getIngresses(namespacedEndpoint(ingressEndpoint, namespace))
+			if err != nil {
+				return nil, errors.Wrap(err, "Error while fetching ingress list")
+			}
+			ingresses = append(ingresses, igs...)
+		}
+	}
+	return ingresses, nil
+}
+
+func (p *CertProcessor) syncIngresses() error {
+	p.Lock.Lock()
+	defer p.Lock.Unlock()
+
+	ingresses, err := p.getIngresses()
+	if err != nil {
+		return err
+	}
+
+	var wg sync.WaitGroup
+	for _, ingress := range ingresses {
+		wg.Add(1)
+		go func(ingress Ingress) {
+			p.processIngress(ingress)
+			wg.Done()
+		}(ingress)
+	}
+	wg.Wait()
+	return nil
+}
+
 func (p *CertProcessor) watchKubernetesEvents(certEndpoint, ingressEndpoint string, wg *sync.WaitGroup, doneChan <-chan struct{}) {
 	certEvents, certErrs := monitorCertificateEvents(certEndpoint)
 	ingressEvents, ingressErrs := monitorIngressEvents(ingressEndpoint)
@@ -198,6 +239,10 @@ func (p *CertProcessor) refreshCertificates(syncInterval time.Duration, wg *sync
 			err := p.syncCertificates(false)
 			if err != nil {
 				log.Printf("Error while synchronizing certificates during refresh: %v", err)
+			}
+			err = p.syncIngresses()
+			if err != nil {
+				log.Printf("Error while synchronizing ingresses during refresh: %v", err)
 			}
 		case <-doneChan:
 			wg.Done()
@@ -426,94 +471,98 @@ func (p *CertProcessor) processIngressEvent(c IngressEvent) {
 	defer p.Lock.Unlock()
 	switch c.Type {
 	case "ADDED", "MODIFIED":
-		if c.Object.Metadata.Annotations[annotationNamespace+".enabled"] != "true" {
-			return
-		}
-		source := EventSource{
-			Component: "kube-cert-manager",
-		}
-		var certs []Certificate
-		provider := c.Object.Metadata.Annotations[annotationNamespace+".provider"]
-		email := c.Object.Metadata.Annotations[annotationNamespace+".email"]
-		for i, tls := range c.Object.Spec.TLS {
-			if len(tls.Hosts) == 0 {
-				continue
-			}
-			if len(tls.Hosts) > 1 {
-				createEvent(Event{
-					Metadata: EventMetadata{
-						Namespace: c.Object.Metadata.Namespace,
-					},
-					InvolvedObject: ingressReference(c.Object, fmt.Sprintf("spec.tls[%d]", i)),
-					Reason:         "ACMEMultipleHosts",
-					Message:        fmt.Sprintf("Couldn't create LE certificate for secret %s: don't support multiple hosts per secret", tls.SecretName),
-					Source:         source,
-					Type:           "Warning",
-				})
-				continue
-			}
-			cert := Certificate{
-				ApiVersion: "v1",
-				Kind:       "Certificate",
-				Metadata: CertificateMetadata{
-					Namespace: c.Object.Metadata.Namespace,
-				},
-				Spec: CertificateSpec{
-					Domain:     tls.Hosts[0],
-					Provider:   provider,
-					Email:      email,
-					SecretName: tls.SecretName,
-				},
-			}
-			certs = append(certs, cert)
-		}
-		if len(certs) > 0 && (provider == "" || email == "") {
-			createEvent(Event{
-				Metadata: EventMetadata{
-					Namespace: c.Object.Metadata.Namespace,
-				},
-				InvolvedObject: ingressReference(c.Object, ""),
-				Reason:         "ACMEMissingAnnotation",
-				Message: fmt.Sprintf("Couldn't create certificates: missing email or provider annotation",
-					c.Object.Metadata.Name),
-				Source: source,
-				Type:   "Warning",
-			})
-			return
-		}
-		for _, cert := range certs {
-			processed, err := p.processCertificate(cert)
-			if err != nil {
-				createEvent(Event{
-					Metadata: EventMetadata{
-						Namespace: c.Object.Metadata.Namespace,
-					},
-					InvolvedObject: ingressReference(c.Object, ""),
-					Reason:         "ACMEError",
-					Message:        fmt.Sprintf("Couldn't create certificate for secret %s: %s", cert.Spec.SecretName, err),
-					Source:         source,
-					Type:           "Warning",
-				})
-				continue
-			}
-			if processed {
-				createEvent(Event{
-					Metadata: EventMetadata{
-						Namespace: c.Object.Metadata.Namespace,
-					},
-					InvolvedObject: ingressReference(c.Object, ""),
-					Reason:         "ACMEProcessed",
-					Message:        fmt.Sprintf("Processed ACME certificate for secret: %s", cert.Spec.SecretName),
-					Source:         source,
-					Type:           "Normal",
-				})
-			}
-		}
+		p.processIngress(c.Object)
 	case "DELETED":
 		// TODO(dh): clean up unused certs. We can't blindly delete
 		// the certs for all listed domains, as the same domains and
 		// secrets may be referenced in other Ingresses, or in
 		// Certificate objects.
+	}
+}
+
+func (p *CertProcessor) processIngress(ingress Ingress) {
+	if ingress.Metadata.Annotations[annotationNamespace+".enabled"] != "true" {
+		return
+	}
+	source := EventSource{
+		Component: "kube-cert-manager",
+	}
+	var certs []Certificate
+	provider := ingress.Metadata.Annotations[annotationNamespace+".provider"]
+	email := ingress.Metadata.Annotations[annotationNamespace+".email"]
+	for i, tls := range ingress.Spec.TLS {
+		if len(tls.Hosts) == 0 {
+			continue
+		}
+		if len(tls.Hosts) > 1 {
+			createEvent(Event{
+				Metadata: EventMetadata{
+					Namespace: ingress.Metadata.Namespace,
+				},
+				InvolvedObject: ingressReference(ingress, fmt.Sprintf("spec.tls[%d]", i)),
+				Reason:         "ACMEMultipleHosts",
+				Message:        fmt.Sprintf("Couldn't create ACME certificate for secret %s: don't support multiple hosts per secret", tls.SecretName),
+				Source:         source,
+				Type:           "Warning",
+			})
+			continue
+		}
+		cert := Certificate{
+			ApiVersion: "v1",
+			Kind:       "Certificate",
+			Metadata: CertificateMetadata{
+				Namespace: ingress.Metadata.Namespace,
+			},
+			Spec: CertificateSpec{
+				Domain:     tls.Hosts[0],
+				Provider:   provider,
+				Email:      email,
+				SecretName: tls.SecretName,
+			},
+		}
+		certs = append(certs, cert)
+	}
+	if len(certs) > 0 && (provider == "" || email == "") {
+		createEvent(Event{
+			Metadata: EventMetadata{
+				Namespace: ingress.Metadata.Namespace,
+			},
+			InvolvedObject: ingressReference(ingress, ""),
+			Reason:         "ACMEMissingAnnotation",
+			Message: fmt.Sprintf("Couldn't create certificates: missing email or provider annotation",
+				ingress.Metadata.Name),
+			Source: source,
+			Type:   "Warning",
+		})
+		return
+	}
+	for _, cert := range certs {
+		processed, err := p.processCertificate(cert)
+		if err != nil {
+			createEvent(Event{
+				Metadata: EventMetadata{
+					Namespace: ingress.Metadata.Namespace,
+				},
+				InvolvedObject: ingressReference(ingress, ""),
+				Reason:         "ACMEError",
+				Message:        fmt.Sprintf("Couldn't create certificate for secret %s: %s", cert.Spec.SecretName, err),
+				Source:         source,
+				Type:           "Warning",
+			})
+			continue
+		}
+		if processed {
+			createEvent(Event{
+				Metadata: EventMetadata{
+					Namespace: ingress.Metadata.Namespace,
+				},
+				InvolvedObject: ingressReference(ingress, ""),
+				Reason:         "ACMEProcessed",
+				Message:        fmt.Sprintf("Processed ACME certificate for secret: %s", cert.Spec.SecretName),
+				Source:         source,
+				Type:           "Normal",
+			})
+		}
 	}
 }
 

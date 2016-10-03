@@ -115,6 +115,13 @@ type IngressTLS struct {
 	SecretName string   `json:"secretName"`
 }
 
+type IngressList struct {
+	ApiVersion string            `json:"apiVersion"`
+	Kind       string            `json:"kind"`
+	Metadata   map[string]string `json:"metadata"`
+	Items      []Ingress         `json:"items"`
+}
+
 type Event struct {
 	Kind           string          `json:"kind"`
 	ApiVersion     string          `json:"apiVersion"`
@@ -408,6 +415,29 @@ func getCertificates(endpoint string) ([]Certificate, error) {
 	}
 
 	return certList.Items, nil
+}
+
+func getIngresses(endpoint string) ([]Ingress, error) {
+	var resp *http.Response
+	var err error
+
+	for {
+		resp, err = http.Get(apiHost + endpoint)
+		if err != nil {
+			log.Printf("Error while retrieving ingress: %v. Retrying in 5 seconds", err)
+			time.Sleep(5 * time.Second)
+			continue
+		}
+		break
+	}
+
+	var ingressList IngressList
+	err = json.NewDecoder(resp.Body).Decode(&ingressList)
+	if err != nil {
+		return nil, err
+	}
+
+	return ingressList.Items, nil
 }
 
 func monitorEvents(endpoint string) (<-chan WatchEvent, <-chan error) {
