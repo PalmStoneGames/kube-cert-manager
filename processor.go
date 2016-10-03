@@ -315,7 +315,7 @@ func (p *CertProcessor) processCertificate(cert Certificate) (processed bool, er
 	}
 
 	// If a cert exists, check its expiry
-	if s != nil {
+	if s != nil && s.Metadata.Labels["domain"] == cert.Spec.Domain {
 		acmeCert, err = NewACMECertDataFromSecret(s)
 		if err != nil {
 			return false, errors.Wrapf(err, "Error while decoding acme certificate from secret for existing domain %v", cert.Spec.Domain)
