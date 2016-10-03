@@ -34,6 +34,7 @@ const (
 	ingressEndpoint    = "/apis/extensions/v1beta1/namespaces/%s/ingresses"
 	ingressEndpointAll = "/apis/extensions/v1beta1/ingresses"
 	secretsEndpoint    = "/api/v1/namespaces/%s/secrets"
+	secretsEndpointAll = "/api/v1/secrets"
 	eventsEndpoint     = "/api/v1/namespaces/%s/events"
 
 	annotationNamespace = "stable.k8s.psg.io/kcm"
@@ -75,11 +76,25 @@ type CertificateList struct {
 }
 
 type Secret struct {
-	Kind       string                 `json:"kind"`
-	ApiVersion string                 `json:"apiVersion"`
-	Metadata   map[string]interface{} `json:"metadata"`
-	Data       map[string][]byte      `json:"data"`
-	Type       string                 `json:"type"`
+	Kind       string            `json:"kind"`
+	ApiVersion string            `json:"apiVersion"`
+	Metadata   SecretMetadata    `json:"metadata"`
+	Data       map[string][]byte `json:"data"`
+	Type       string            `json:"type"`
+}
+
+type SecretMetadata struct {
+	Name        string            `json:"name"`
+	Namespace   string            `json:"namespace"`
+	Labels      map[string]string `json:"labels"`
+	Annotations map[string]string `json:"annotations"`
+}
+
+type SecretList struct {
+	ApiVersion string            `json:"apiVersion"`
+	Kind       string            `json:"kind"`
+	Metadata   map[string]string `json:"metadata"`
+	Items      []Secret          `json:"items"`
 }
 
 type ACMECertData struct {
@@ -237,9 +252,9 @@ func (u *ACMEUserData) GetPrivateKey() crypto.PrivateKey {
 }
 
 func (c *ACMECertData) ToSecret() *Secret {
-	metadata := make(map[string]interface{})
-	metadata["labels"] = map[string]string{"domain": c.DomainName}
-	metadata["annotations"] = map[string]string{
+	var metadata SecretMetadata
+	metadata.Labels = map[string]string{"domain": c.DomainName}
+	metadata.Annotations = map[string]string{
 		annotationNamespace: "true",
 	}
 
@@ -260,26 +275,15 @@ func NewACMECertDataFromSecret(s *Secret) (ACMECertData, error) {
 	var acmeCertData ACMECertData
 	var ok bool
 
-	labels, ok := s.Metadata["labels"].(map[string]interface{})
-	if !ok {
-		return acmeCertData, errors.Errorf("Could not cast labels, expected map[string]interface{}, got %T", s.Metadata["labels"])
-	}
-
-	acmeCertData.DomainName, ok = labels["domain"].(string)
-	if !ok {
-		return acmeCertData, errors.Errorf("Could not find metadata domain in secret %v", s.Metadata["name"])
-	}
-
+	acmeCertData.DomainName = s.Metadata.Labels["domain"]
 	acmeCertData.Cert, ok = s.Data["tls.crt"]
 	if !ok {
-		return acmeCertData, errors.Errorf("Could not find key tls.crt in secret %v", s.Metadata["name"])
+		return acmeCertData, errors.Errorf("Could not find key tls.crt in secret %v", s.Metadata.Name)
 	}
-
 	acmeCertData.PrivateKey, ok = s.Data["tls.key"]
 	if !ok {
-		return acmeCertData, errors.Errorf("Could not find key tls.key in secret %v", s.Metadata["name"])
+		return acmeCertData, errors.Errorf("Could not find key tls.key in secret %v", s.Metadata.Name)
 	}
-
 	return acmeCertData, nil
 }
 
@@ -328,7 +332,7 @@ func getSecret(namespace string, key string) (*Secret, error) {
 }
 
 func saveSecret(namespace string, secret *Secret, isUpdate bool) error {
-	if secret.Metadata["name"] == "" {
+	if secret.Metadata.Name == "" {
 		return errors.New("Secret name must be specified in metadata")
 	}
 
@@ -343,7 +347,7 @@ func saveSecret(namespace string, secret *Secret, isUpdate bool) error {
 	var url string
 	var method string
 	if isUpdate {
-		url = apiHost + namespacedEndpoint(secretsEndpoint, namespace) + "/" + secret.Metadata["name"].(string)
+		url = apiHost + namespacedEndpoint(secretsEndpoint, namespace) + "/" + secret.Metadata.Name
 		method = "PUT"
 	} else {
 		url = apiHost + namespacedEndpoint(secretsEndpoint, namespace)
@@ -391,6 +395,29 @@ func deleteSecret(namespace string, key string) error {
 	}
 
 	return nil
+}
+
+func getSecrets(endpoint string) ([]Secret, error) {
+	var resp *http.Response
+	var err error
+
+	for {
+		resp, err = http.Get(apiHost + endpoint)
+		if err != nil {
+			log.Printf("Error while retrieving certificate: %v. Retrying in 5 seconds", err)
+			time.Sleep(5 * time.Second)
+			continue
+		}
+		break
+	}
+
+	var secretList SecretList
+	err = json.NewDecoder(resp.Body).Decode(&secretList)
+	if err != nil {
+		return nil, err
+	}
+
+	return secretList.Items, nil
 }
 
 func getCertificates(endpoint string) ([]Certificate, error) {

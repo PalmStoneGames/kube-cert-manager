@@ -119,26 +119,13 @@ func (p *CertProcessor) newACMEClient(acmeUser acme.User, provider string) (*acm
 	}
 }
 
-func (p *CertProcessor) syncCertificates(verbose bool) error {
-	// FIXME(dh): sync implicit certificates created by Ingress
+func (p *CertProcessor) syncCertificates() error {
 	p.Lock.Lock()
 	defer p.Lock.Unlock()
 
-	var certificates []Certificate
-	if len(p.namespaces) == 0 {
-		var err error
-		certificates, err = getCertificates(certEndpointAll)
-		if err != nil {
-			return errors.Wrap(err, "Error while fetching certificate list")
-		}
-	} else {
-		for _, namespace := range p.namespaces {
-			certs, err := getCertificates(namespacedEndpoint(certEndpoint, namespace))
-			if err != nil {
-				return errors.Wrap(err, "Error while fetching certificate list")
-			}
-			certificates = append(certificates, certs...)
-		}
+	certificates, err := p.getCertificates()
+	if err != nil {
+		return err
 	}
 
 	var wg sync.WaitGroup
@@ -154,6 +141,46 @@ func (p *CertProcessor) syncCertificates(verbose bool) error {
 	}
 	wg.Wait()
 	return nil
+}
+
+func (p *CertProcessor) getSecrets() ([]Secret, error) {
+	var secrets []Secret
+	if len(p.namespaces) == 0 {
+		var err error
+		secrets, err = getSecrets(secretsEndpointAll)
+		if err != nil {
+			return nil, errors.Wrap(err, "Error while fetching secret list")
+		}
+	} else {
+		for _, namespace := range p.namespaces {
+			s, err := getSecrets(namespacedEndpoint(secretsEndpoint, namespace))
+			if err != nil {
+				return nil, errors.Wrap(err, "Error while fetching secret list")
+			}
+			secrets = append(secrets, s...)
+		}
+	}
+	return secrets, nil
+}
+
+func (p *CertProcessor) getCertificates() ([]Certificate, error) {
+	var certificates []Certificate
+	if len(p.namespaces) == 0 {
+		var err error
+		certificates, err = getCertificates(certEndpointAll)
+		if err != nil {
+			return nil, errors.Wrap(err, "Error while fetching certificate list")
+		}
+	} else {
+		for _, namespace := range p.namespaces {
+			certs, err := getCertificates(namespacedEndpoint(certEndpoint, namespace))
+			if err != nil {
+				return nil, errors.Wrap(err, "Error while fetching certificate list")
+			}
+			certificates = append(certificates, certs...)
+		}
+	}
+	return certificates, nil
 }
 
 func (p *CertProcessor) getIngresses() ([]Ingress, error) {
@@ -236,7 +263,7 @@ func (p *CertProcessor) refreshCertificates(syncInterval time.Duration, wg *sync
 	for {
 		select {
 		case <-time.After(syncInterval):
-			err := p.syncCertificates(false)
+			err := p.syncCertificates()
 			if err != nil {
 				log.Printf("Error while synchronizing certificates during refresh: %v", err)
 			}
@@ -433,7 +460,7 @@ func (p *CertProcessor) processCertificate(cert Certificate) (processed bool, er
 	// Convert cert data to k8s secret
 	isUpdate := s != nil
 	s = acmeCert.ToSecret()
-	s.Metadata["name"] = p.secretName(cert)
+	s.Metadata.Name = p.secretName(cert)
 
 	// Save the k8s secret
 	if err := saveSecret(namespace, s, isUpdate); err != nil {
@@ -444,13 +471,6 @@ func (p *CertProcessor) processCertificate(cert Certificate) (processed bool, er
 }
 
 func (p *CertProcessor) deleteCertificate(cert Certificate) error {
-	namespace := certificateNamespace(cert)
-	secretName := p.secretName(cert)
-	log.Printf("[%v] Deleting secret %v", cert.Spec.Domain, secretName)
-	if err := deleteSecret(namespace, secretName); err != nil {
-		return errors.Wrapf(err, "Error while deleting secret for domain %v", cert.Spec.Domain)
-	}
-
 	log.Printf("[%v] Deleting user info and certificate details", cert.Spec.Domain)
 	err := p.db.Update(func(tx *bolt.Tx) error {
 		key := []byte(cert.Spec.Domain)
@@ -463,6 +483,38 @@ func (p *CertProcessor) deleteCertificate(cert Certificate) error {
 		return errors.Wrapf(err, "Error while saving data to bolt for domain %v", cert.Spec.Domain)
 	}
 
+	return nil
+}
+
+func (p *CertProcessor) gcSecrets() error {
+	// FIXME(dh): consider secrets created by ingresses
+
+	// Fetch secrets before certificates. That way, if a race occurs,
+	// we will only fail to delete a secret, not accidentally delete
+	// one that's still referenced.
+	secrets, err := p.getSecrets()
+	if err != nil {
+		return err
+	}
+	certs, err := p.getCertificates()
+	if err != nil {
+		return err
+	}
+	usedSecrets := map[string]bool{}
+	for _, cert := range certs {
+		usedSecrets[cert.Metadata.Namespace+" "+p.secretName(cert)] = true
+	}
+	for _, secret := range secrets {
+		if secret.Metadata.Annotations[annotationNamespace] != "true" {
+			continue
+		}
+		if usedSecrets[secret.Metadata.Namespace+" "+secret.Metadata.Name] {
+			continue
+		}
+		if err := deleteSecret(secret.Metadata.Namespace, secret.Metadata.Name); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

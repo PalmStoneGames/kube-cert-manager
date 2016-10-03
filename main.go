@@ -94,7 +94,7 @@ func main() {
 	p := NewCertProcessor(acmeURL, certSecretPrefix, namespaces, db)
 
 	// Do a synchronous certificate sync for startup
-	if err := p.syncCertificates(true); err != nil {
+	if err := p.syncCertificates(); err != nil {
 		log.Fatalf("Error while syncing certificates: %v", err)
 	}
 
