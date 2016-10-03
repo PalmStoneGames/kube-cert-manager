@@ -284,7 +284,7 @@ func (p *CertProcessor) processCertificateEvent(c CertificateEvent) error {
 	p.Lock.Lock()
 	defer p.Lock.Unlock()
 	switch c.Type {
-	case "ADDED":
+	case "ADDED", "MODIFIED":
 		_, err := p.processCertificate(c.Object)
 		return err
 	}
