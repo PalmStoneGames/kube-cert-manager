@@ -124,13 +124,9 @@ func main() {
 	// Listen for shutdown signals
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
-	for {
-		select {
-		case <-signalChan:
-			log.Println("Shutdown signal received, exiting...")
-			close(doneChan)
-			wg.Wait()
-			return
-		}
-	}
+	<-signalChan
+	log.Println("Shutdown signal received, exiting...")
+	close(doneChan)
+	wg.Wait()
+	return
 }
