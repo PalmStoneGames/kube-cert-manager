@@ -24,24 +24,26 @@ The following example exposes a load balanced service on
 example.com, managing the TLS certificate with kube-cert-manager and
 storing the certificate in a secret named `hello-secret`:
 
-    apiVersion: extensions/v1beta1
-    kind: Ingress
-    metadata:
-      name: ingress
-      annotations:
-        stable.k8s.psg.io/kcm.enabled: "true"
-        stable.k8s.psg.io/kcm.provider: "googlecloud"
-        stable.k8s.psg.io/kcm.email: "foo@example.com"
-    spec:
-      tls:
-      - hosts:
-        - example.com
-        secretName: hello-secret
-      rules:
-      - host: "example.com"
-        http:
-          paths:
-          - path: /hello-world
-            backend:
-              serviceName: helloworld
-              servicePort: 80
+```
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: ingress
+  annotations:
+    stable.k8s.psg.io/kcm.enabled: "true"
+    stable.k8s.psg.io/kcm.provider: "googlecloud"
+    stable.k8s.psg.io/kcm.email: "admin@psg.io"
+spec:
+  tls:
+  - hosts:
+    - psg.io
+    secretName: hello-secret
+  rules:
+  - host: "psg.io"
+    http:
+      paths:
+      - path: /hello-world
+        backend:
+          serviceName: helloworld
+          servicePort: 80
+```

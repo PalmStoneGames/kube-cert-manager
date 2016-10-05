@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: kube-cert-manager
-          image: palmstonegames/kube-cert-manager:0.2
+          image: palmstonegames/kube-cert-manager:0.3
           args:
             - "-data-dir=/var/lib/cert-manager"
             - "-acme-url=https://acme-staging.api.letsencrypt.org/directory"
@@ -22,7 +22,7 @@ spec:
             - name: data
               mountPath: /var/lib/cert-manager
         - name: kubectl-proxy
-          image: palmstonegames/kubectl-proxy:1.3.6
+          image: palmstonegames/kubectl-proxy:1.4.0
       volumes:
         - name: "data"
           gcePersistentDisk:

@@ -1,0 +1,9 @@
+apiVersion: "stable.k8s.psg.io/v1"
+kind: "Certificate"
+metadata:
+  name: "psg-dot-io"
+spec:
+  domain: "psg.io"
+  email: "admin@psg.io"
+  provider: "googlecloud"
+  secretName: cert-psg.io

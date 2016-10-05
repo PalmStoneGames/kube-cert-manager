@@ -1,0 +1,21 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: ingress
+  annotations:
+    stable.k8s.psg.io/kcm.enabled: "true"
+    stable.k8s.psg.io/kcm.provider: "googlecloud"
+    stable.k8s.psg.io/kcm.email: "admin@psg.io"
+spec:
+  tls:
+  - hosts:
+    - psg.io
+    secretName: cert-psg.io
+  rules:
+  - host: "psg.io"
+    http:
+      paths:
+      - path: /hello-world
+        backend:
+          serviceName: helloworld
+          servicePort: 80

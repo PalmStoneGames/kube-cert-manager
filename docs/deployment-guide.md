@@ -18,7 +18,7 @@ The `kube-cert-manager` is driven by [Kubernetes Certificate Objects](certificat
 Create the Certificate Third Party Resource:
 
 ```
-kubectl create -f k8s/certificate.yaml 
+kubectl create -f k8s/certificate-type.yaml 
 ```
 
 
@@ -26,6 +26,11 @@ kubectl create -f k8s/certificate.yaml
 
 If you want to use DNS challenges, you'll need to [Configure your DNS provider](providers.md)
 If you do not do this, only http and tls challenges will be available.
+
+### Configure your kubectl version
+
+The deployment leverages `kubectl` running in proxy mode for API access. By default, the deployment is set to use kubectl 1.4.0 for this. If you are running in a 1.3 cluster, change this to 1.3.6.
+For a list of available versions, check the [hub.docker.com page for kubectl-proxy](https://hub.docker.com/r/palmstonegames/kubectl-proxy/tags/)
 
 ### Create the Kubernetes Certificate Manager Deployment
 
