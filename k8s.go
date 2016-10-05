@@ -25,6 +25,9 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/xenolf/lego/acme"
+	"k8s.io/client-go/1.4/pkg/api/unversioned"
+	"k8s.io/client-go/1.4/pkg/api/v1"
+	"k8s.io/client-go/1.4/pkg/apis/extensions/v1beta1"
 )
 
 const (
@@ -40,15 +43,6 @@ const (
 	annotationNamespace = "stable.k8s.psg.io/kcm"
 )
 
-type Metadata struct {
-	Name            string            `json:"name,omitempty"`
-	Namespace       string            `json:"namespace,omitempty"`
-	Annotations     map[string]string `json:"annotations,omitempty"`
-	Labels          map[string]string `json:"labels,omitempty"`
-	ResourceVersion string            `json:"resourceVersion,omitempty"`
-	UID             string            `json:"uid,omitempty"`
-}
-
 type WatchEvent struct {
 	Type   string          `json:"type"`
 	Object json.RawMessage `json:"object"`
@@ -60,10 +54,9 @@ type CertificateEvent struct {
 }
 
 type Certificate struct {
-	APIVersion string          `json:"apiVersion"`
-	Kind       string          `json:"kind"`
-	Metadata   Metadata        `json:"metadata"`
-	Spec       CertificateSpec `json:"spec"`
+	unversioned.TypeMeta `json:",inline"`
+	v1.ObjectMeta        `json:"metadata"`
+	Spec                 CertificateSpec `json:"spec"`
 }
 
 type CertificateSpec struct {
@@ -74,25 +67,9 @@ type CertificateSpec struct {
 }
 
 type CertificateList struct {
-	APIVersion string        `json:"apiVersion"`
-	Kind       string        `json:"kind"`
-	Metadata   Metadata      `json:"metadata"`
-	Items      []Certificate `json:"items"`
-}
-
-type Secret struct {
-	Kind       string            `json:"kind"`
-	APIVersion string            `json:"apiVersion"`
-	Metadata   Metadata          `json:"metadata"`
-	Data       map[string][]byte `json:"data"`
-	Type       string            `json:"type"`
-}
-
-type SecretList struct {
-	APIVersion string   `json:"apiVersion"`
-	Kind       string   `json:"kind"`
-	Metadata   Metadata `json:"metadata"`
-	Items      []Secret `json:"items"`
+	unversioned.TypeMeta `json:",inline"`
+	v1.ObjectMeta        `json:"metadata"`
+	Items                []Certificate `json:"items"`
 }
 
 type ACMECertData struct {
@@ -102,85 +79,35 @@ type ACMECertData struct {
 }
 
 type IngressEvent struct {
-	Type   string  `json:"type"`
-	Object Ingress `json:"object"`
+	Type   string          `json:"type"`
+	Object v1beta1.Ingress `json:"object"`
 }
 
-type Ingress struct {
-	Metadata Metadata    `json:"metadata"`
-	Spec     IngressSpec `json:"spec"`
-}
-
-type IngressSpec struct {
-	TLS []IngressTLS `json:"tls"`
-}
-
-type IngressTLS struct {
-	Hosts      []string `json:"hosts"`
-	SecretName string   `json:"secretName"`
-}
-
-type IngressList struct {
-	APIVersion string    `json:"apiVersion"`
-	Kind       string    `json:"kind"`
-	Metadata   Metadata  `json:"metadata"`
-	Items      []Ingress `json:"items"`
-}
-
-type Event struct {
-	Kind           string          `json:"kind"`
-	APIVersion     string          `json:"apiVersion"`
-	Metadata       Metadata        `json:"metadata"`
-	InvolvedObject ObjectReference `json:"involvedObject"`
-	Reason         string          `json:"reason"`
-	Message        string          `json:"message"`
-	Source         EventSource     `json:"source"`
-	FirstTimestamp string          `json:"firstTimestamp,omitempty"`
-	LastTimestamp  string          `json:"lastTimestamp,omitempty"`
-	Count          int             `json:"count,omitempty"`
-	Type           string          `json:"type"`
-}
-
-type ObjectReference struct {
-	Kind            string `json:"kind,omitempty"`
-	Namespace       string `json:"namespace,omitempty"`
-	Name            string `json:"name,omitempty"`
-	UID             string `json:"uid,omitempty"`
-	APIVersion      string `json:"apiVersion,omitempty"`
-	ResourceVersion string `json:"resourceVersion,omitempty"`
-	FieldPath       string `json:"fieldPath,omitempty"`
-}
-
-type EventSource struct {
-	Component string `json:"component,omitempty"`
-	Host      string `json:"host,omitempty"`
-}
-
-func ingressReference(ing Ingress, path string) ObjectReference {
-	return ObjectReference{
+func ingressReference(ing v1beta1.Ingress, path string) v1.ObjectReference {
+	return v1.ObjectReference{
 		Kind:            "Ingress",
-		Namespace:       ing.Metadata.Namespace,
-		Name:            ing.Metadata.Name,
-		UID:             ing.Metadata.UID,
-		ResourceVersion: ing.Metadata.ResourceVersion,
+		Namespace:       ing.Namespace,
+		Name:            ing.Name,
+		UID:             ing.UID,
+		ResourceVersion: ing.ResourceVersion,
 		FieldPath:       path,
 	}
 }
 
-func createEvent(ev Event) {
-	now := time.Now()
-	ev.Metadata.Name = fmt.Sprintf("%s.%x", ev.InvolvedObject.Name, now.UnixNano())
+func createEvent(ev v1.Event) {
+	now := unversioned.Now()
+	ev.Name = fmt.Sprintf("%s.%x", ev.InvolvedObject.Name, now.UnixNano())
 	if ev.Kind == "" {
 		ev.Kind = "Event"
 	}
 	if ev.APIVersion == "" {
 		ev.APIVersion = "v1"
 	}
-	if ev.FirstTimestamp == "" {
-		ev.FirstTimestamp = now.Format(time.RFC3339Nano)
+	if ev.FirstTimestamp.IsZero() {
+		ev.FirstTimestamp = now
 	}
-	if ev.LastTimestamp == "" {
-		ev.LastTimestamp = now.Format(time.RFC3339Nano)
+	if ev.LastTimestamp.IsZero() {
+		ev.LastTimestamp = now
 	}
 	if ev.Count == 0 {
 		ev.Count = 1
@@ -190,7 +117,7 @@ func createEvent(ev Event) {
 		log.Println("internal error:", err)
 		return
 	}
-	resp, err := http.Post(apiHost+namespacedEndpoint(eventsEndpoint, ev.Metadata.Namespace), "application/json", bytes.NewReader(b))
+	resp, err := http.Post(apiHost+namespacedEndpoint(eventsEndpoint, ev.Namespace), "application/json", bytes.NewReader(b))
 	if err != nil {
 		log.Println("internal error:", err)
 		return
@@ -236,8 +163,8 @@ func (u *ACMEUserData) GetPrivateKey() crypto.PrivateKey {
 	return privateKey
 }
 
-func (c *ACMECertData) ToSecret() *Secret {
-	var metadata Metadata
+func (c *ACMECertData) ToSecret() *v1.Secret {
+	var metadata v1.ObjectMeta
 	metadata.Labels = map[string]string{"domain": c.DomainName}
 	metadata.Annotations = map[string]string{
 		annotationNamespace: "true",
@@ -247,27 +174,29 @@ func (c *ACMECertData) ToSecret() *Secret {
 	data["tls.crt"] = c.Cert
 	data["tls.key"] = c.PrivateKey
 
-	return &Secret{
-		APIVersion: "v1",
+	return &v1.Secret{
+		TypeMeta: unversioned.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Secret",
+		},
 		Data:       data,
-		Kind:       "Secret",
-		Metadata:   metadata,
+		ObjectMeta: metadata,
 		Type:       "kubernetes.io/tls",
 	}
 }
 
-func NewACMECertDataFromSecret(s *Secret) (ACMECertData, error) {
+func NewACMECertDataFromSecret(s *v1.Secret) (ACMECertData, error) {
 	var acmeCertData ACMECertData
 	var ok bool
 
-	acmeCertData.DomainName = s.Metadata.Labels["domain"]
+	acmeCertData.DomainName = s.Labels["domain"]
 	acmeCertData.Cert, ok = s.Data["tls.crt"]
 	if !ok {
-		return acmeCertData, errors.Errorf("Could not find key tls.crt in secret %v", s.Metadata.Name)
+		return acmeCertData, errors.Errorf("Could not find key tls.crt in secret %v", s.Name)
 	}
 	acmeCertData.PrivateKey, ok = s.Data["tls.key"]
 	if !ok {
-		return acmeCertData, errors.Errorf("Could not find key tls.key in secret %v", s.Metadata.Name)
+		return acmeCertData, errors.Errorf("Could not find key tls.key in secret %v", s.Name)
 	}
 	return acmeCertData, nil
 }
@@ -290,7 +219,7 @@ func (certDetails *ACMECertDetails) ToCertResource() acme.CertificateResource {
 	}
 }
 
-func getSecret(namespace string, key string) (*Secret, error) {
+func getSecret(namespace string, key string) (*v1.Secret, error) {
 	// Run the http request
 	url := apiHost + namespacedEndpoint(secretsEndpoint, namespace) + "/" + key
 	resp, err := http.Get(url)
@@ -306,7 +235,7 @@ func getSecret(namespace string, key string) (*Secret, error) {
 	}
 
 	// Deserialize the secret
-	var secret Secret
+	var secret v1.Secret
 	decoder := json.NewDecoder(resp.Body)
 	err = decoder.Decode(&secret)
 	if err != nil {
@@ -316,8 +245,8 @@ func getSecret(namespace string, key string) (*Secret, error) {
 	return &secret, nil
 }
 
-func saveSecret(namespace string, secret *Secret, isUpdate bool) error {
-	if secret.Metadata.Name == "" {
+func saveSecret(namespace string, secret *v1.Secret, isUpdate bool) error {
+	if secret.Name == "" {
 		return errors.New("Secret name must be specified in metadata")
 	}
 
@@ -332,7 +261,7 @@ func saveSecret(namespace string, secret *Secret, isUpdate bool) error {
 	var url string
 	var method string
 	if isUpdate {
-		url = apiHost + namespacedEndpoint(secretsEndpoint, namespace) + "/" + secret.Metadata.Name
+		url = apiHost + namespacedEndpoint(secretsEndpoint, namespace) + "/" + secret.Name
 		method = "PUT"
 	} else {
 		url = apiHost + namespacedEndpoint(secretsEndpoint, namespace)
@@ -382,7 +311,7 @@ func deleteSecret(namespace string, key string) error {
 	return nil
 }
 
-func getSecrets(endpoint string) ([]Secret, error) {
+func getSecrets(endpoint string) ([]v1.Secret, error) {
 	var resp *http.Response
 	var err error
 
@@ -396,7 +325,7 @@ func getSecrets(endpoint string) ([]Secret, error) {
 		break
 	}
 
-	var secretList SecretList
+	var secretList v1.SecretList
 	err = json.NewDecoder(resp.Body).Decode(&secretList)
 	if err != nil {
 		return nil, err
@@ -428,7 +357,7 @@ func getCertificates(endpoint string) ([]Certificate, error) {
 	return certList.Items, nil
 }
 
-func getIngresses(endpoint string) ([]Ingress, error) {
+func getIngresses(endpoint string) ([]v1beta1.Ingress, error) {
 	var resp *http.Response
 	var err error
 
@@ -442,7 +371,7 @@ func getIngresses(endpoint string) ([]Ingress, error) {
 		break
 	}
 
-	var ingressList IngressList
+	var ingressList v1beta1.IngressList
 	err = json.NewDecoder(resp.Body).Decode(&ingressList)
 	if err != nil {
 		return nil, err
