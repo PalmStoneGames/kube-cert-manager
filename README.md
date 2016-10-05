@@ -9,6 +9,7 @@ The code itself however, was entirely reimplemented to use xenolf/lego as the ba
 
 * Manage Kubernetes TLS secrets backed by Let's Encrypt issued certificates.
 * Manage [Let's Encrypt](https://letsencrypt.org) issued certificates based on Kubernetes ThirdParty Resources.
+* Manage [Let's Encrypt](https://letsencrypt.org) issued certificates based on Kubenretes Ingress Resources.
 * Domain validation using ACME HTTP-01, SNI-TLS-01 or DNS-01 challenges.
 * Support for multiple challenge providers.
 
@@ -32,7 +33,7 @@ The code itself however, was entirely reimplemented to use xenolf/lego as the ba
 * [Creating a Certificate](docs/create-a-certificate.md)
 * [Deleting a Certificate](docs/delete-a-certificate.md)
 * [Consuming Certificates](docs/consume-certificates.md)
-- [Using with Ingress Resources](docs/ingress.md)
+- [Managing certificates for Ingress Resources](docs/ingress.md)
 - [Garbage collection of secrets](docs/garbage-collection.md)
 
 ## Documentation
