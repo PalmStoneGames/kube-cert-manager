@@ -637,10 +637,9 @@ func (p *CertProcessor) processIngress(ingress Ingress) {
 			},
 			InvolvedObject: ingressReference(ingress, ""),
 			Reason:         "ACMEMissingAnnotation",
-			Message: fmt.Sprintf("Couldn't create certificates: missing email or provider annotation",
-				ingress.Metadata.Name),
 			Source: source,
 			Type:   "Warning",
+			Message:        "Couldn't create certificates: missing email or provider annotation",
 		})
 		return
 	}
