@@ -24,6 +24,7 @@ The code itself however, was entirely reimplemented to use xenolf/lego as the ba
 
 * Kubernetes 1.3+
 * At least one configured [challenge provider](docs/providers.md)
+* A Kubectl with the same 1.x version as your cluster (ie. kubectl 1.3.x for a 1.3 cluster, and kubectl 1.4.x for a 1.4 cluster)
 
 ## Usage
 
