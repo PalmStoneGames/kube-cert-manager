@@ -39,6 +39,9 @@ import (
 	"github.com/xenolf/lego/providers/dns/rfc2136"
 	"github.com/xenolf/lego/providers/dns/route53"
 	"github.com/xenolf/lego/providers/dns/vultr"
+	"k8s.io/client-go/1.4/pkg/api/unversioned"
+	"k8s.io/client-go/1.4/pkg/api/v1"
+	"k8s.io/client-go/1.4/pkg/apis/extensions/v1beta1"
 )
 
 type CertProcessor struct {
@@ -143,8 +146,8 @@ func (p *CertProcessor) syncCertificates() error {
 	return nil
 }
 
-func (p *CertProcessor) getSecrets() ([]Secret, error) {
-	var secrets []Secret
+func (p *CertProcessor) getSecrets() ([]v1.Secret, error) {
+	var secrets []v1.Secret
 	if len(p.namespaces) == 0 {
 		var err error
 		secrets, err = getSecrets(secretsEndpointAll)
@@ -183,8 +186,8 @@ func (p *CertProcessor) getCertificates() ([]Certificate, error) {
 	return certificates, nil
 }
 
-func (p *CertProcessor) getIngresses() ([]Ingress, error) {
-	var ingresses []Ingress
+func (p *CertProcessor) getIngresses() ([]v1beta1.Ingress, error) {
+	var ingresses []v1beta1.Ingress
 	if len(p.namespaces) == 0 {
 		var err error
 		ingresses, err = getIngresses(ingressEndpointAll)
@@ -215,7 +218,7 @@ func (p *CertProcessor) syncIngresses() error {
 	var wg sync.WaitGroup
 	for _, ingress := range ingresses {
 		wg.Add(1)
-		go func(ingress Ingress) {
+		go func(ingress v1beta1.Ingress) {
 			p.processIngress(ingress)
 			wg.Done()
 		}(ingress)
@@ -315,7 +318,7 @@ func (p *CertProcessor) processCertificate(cert Certificate) (processed bool, er
 	}
 
 	// If a cert exists, check its expiry
-	if s != nil && s.Metadata.Labels["domain"] == cert.Spec.Domain {
+	if s != nil && s.Labels["domain"] == cert.Spec.Domain {
 		acmeCert, err = NewACMECertDataFromSecret(s)
 		if err != nil {
 			return false, errors.Wrapf(err, "Error while decoding acme certificate from secret for existing domain %v", cert.Spec.Domain)
@@ -459,7 +462,7 @@ func (p *CertProcessor) processCertificate(cert Certificate) (processed bool, er
 	// Convert cert data to k8s secret
 	isUpdate := s != nil
 	s = acmeCert.ToSecret()
-	s.Metadata.Name = p.secretName(cert)
+	s.Name = p.secretName(cert)
 
 	// Save the k8s secret
 	if err := saveSecret(namespace, s, isUpdate); err != nil {
@@ -470,18 +473,18 @@ func (p *CertProcessor) processCertificate(cert Certificate) (processed bool, er
 	if isUpdate {
 		msg = "Updated certificate"
 	}
-	createEvent(Event{
-		Metadata: Metadata{
+	createEvent(v1.Event{
+		ObjectMeta: v1.ObjectMeta{
 			Namespace: namespace,
 		},
-		InvolvedObject: ObjectReference{
+		InvolvedObject: v1.ObjectReference{
 			Kind:      "Secret",
 			Namespace: namespace,
-			Name:      s.Metadata.Name,
+			Name:      s.Name,
 		},
 		Reason:  "ACMEUpdated",
 		Message: msg,
-		Source: EventSource{
+		Source: v1.EventSource{
 			Component: "kube-cert-manager",
 		},
 		Type: "Normal",
@@ -530,17 +533,17 @@ func (p *CertProcessor) gcSecrets() error {
 	}
 	usedSecrets := map[string]bool{}
 	for _, cert := range certs {
-		usedSecrets[cert.Metadata.Namespace+" "+p.secretName(cert)] = true
+		usedSecrets[cert.Namespace+" "+p.secretName(cert)] = true
 	}
 	for _, secret := range secrets {
-		if secret.Metadata.Annotations[annotationNamespace] != "true" {
+		if secret.Annotations[annotationNamespace] != "true" {
 			continue
 		}
-		if usedSecrets[secret.Metadata.Namespace+" "+secret.Metadata.Name] {
+		if usedSecrets[secret.Namespace+" "+secret.Name] {
 			continue
 		}
-		log.Printf("Evicting unused secret %s in namespace %s", secret.Metadata.Name, secret.Metadata.Namespace)
-		if err := deleteSecret(secret.Metadata.Namespace, secret.Metadata.Name); err != nil {
+		log.Printf("Evicting unused secret %s in namespace %s", secret.Name, secret.Namespace)
+		if err := deleteSecret(secret.Namespace, secret.Name); err != nil {
 			return err
 		}
 	}
@@ -556,13 +559,13 @@ func (p *CertProcessor) processIngressEvent(c IngressEvent) {
 	}
 }
 
-func ingressCertificates(ingress Ingress) []Certificate {
-	if ingress.Metadata.Annotations[annotationNamespace+".enabled"] != "true" {
+func ingressCertificates(ingress v1beta1.Ingress) []Certificate {
+	if ingress.Annotations[annotationNamespace+".enabled"] != "true" {
 		return nil
 	}
 	var certs []Certificate
-	provider := ingress.Metadata.Annotations[annotationNamespace+".provider"]
-	email := ingress.Metadata.Annotations[annotationNamespace+".email"]
+	provider := ingress.Annotations[annotationNamespace+".provider"]
+	email := ingress.Annotations[annotationNamespace+".email"]
 	if provider == "" || email == "" {
 		return nil
 	}
@@ -571,10 +574,12 @@ func ingressCertificates(ingress Ingress) []Certificate {
 			continue
 		}
 		cert := Certificate{
-			APIVersion: "v1",
-			Kind:       "Certificate",
-			Metadata: Metadata{
-				Namespace: ingress.Metadata.Namespace,
+			TypeMeta: unversioned.TypeMeta{
+				APIVersion: "v1",
+				Kind:       "Certificate",
+			},
+			ObjectMeta: v1.ObjectMeta{
+				Namespace: ingress.Namespace,
 			},
 			Spec: CertificateSpec{
 				Domain:     tls.Hosts[0],
@@ -588,24 +593,24 @@ func ingressCertificates(ingress Ingress) []Certificate {
 	return certs
 }
 
-func (p *CertProcessor) processIngress(ingress Ingress) {
-	if ingress.Metadata.Annotations[annotationNamespace+".enabled"] != "true" {
+func (p *CertProcessor) processIngress(ingress v1beta1.Ingress) {
+	if ingress.Annotations[annotationNamespace+".enabled"] != "true" {
 		return
 	}
-	source := EventSource{
+	source := v1.EventSource{
 		Component: "kube-cert-manager",
 	}
 	var certs []Certificate
-	provider := ingress.Metadata.Annotations[annotationNamespace+".provider"]
-	email := ingress.Metadata.Annotations[annotationNamespace+".email"]
+	provider := ingress.Annotations[annotationNamespace+".provider"]
+	email := ingress.Annotations[annotationNamespace+".email"]
 	for i, tls := range ingress.Spec.TLS {
 		if len(tls.Hosts) == 0 {
 			continue
 		}
 		if len(tls.Hosts) > 1 {
-			createEvent(Event{
-				Metadata: Metadata{
-					Namespace: ingress.Metadata.Namespace,
+			createEvent(v1.Event{
+				ObjectMeta: v1.ObjectMeta{
+					Namespace: ingress.Namespace,
 				},
 				InvolvedObject: ingressReference(ingress, fmt.Sprintf("spec.tls[%d]", i)),
 				Reason:         "ACMEMultipleHosts",
@@ -616,10 +621,12 @@ func (p *CertProcessor) processIngress(ingress Ingress) {
 			continue
 		}
 		cert := Certificate{
-			APIVersion: "v1",
-			Kind:       "Certificate",
-			Metadata: Metadata{
-				Namespace: ingress.Metadata.Namespace,
+			TypeMeta: unversioned.TypeMeta{
+				APIVersion: "v1",
+				Kind:       "Certificate",
+			},
+			ObjectMeta: v1.ObjectMeta{
+				Namespace: ingress.Namespace,
 			},
 			Spec: CertificateSpec{
 				Domain:     tls.Hosts[0],
@@ -631,25 +638,24 @@ func (p *CertProcessor) processIngress(ingress Ingress) {
 		certs = append(certs, cert)
 	}
 	if len(certs) > 0 && (provider == "" || email == "") {
-		createEvent(Event{
-			Metadata: Metadata{
-				Namespace: ingress.Metadata.Namespace,
+		createEvent(v1.Event{
+			ObjectMeta: v1.ObjectMeta{
+				Namespace: ingress.Namespace,
 			},
 			InvolvedObject: ingressReference(ingress, ""),
 			Reason:         "ACMEMissingAnnotation",
-			Message: fmt.Sprintf("Couldn't create certificates: missing email or provider annotation",
-				ingress.Metadata.Name),
-			Source: source,
-			Type:   "Warning",
+			Message:        "Couldn't create certificates: missing email or provider annotation",
+			Source:         source,
+			Type:           "Warning",
 		})
 		return
 	}
 	for _, cert := range certs {
 		processed, err := p.processCertificate(cert)
 		if err != nil {
-			createEvent(Event{
-				Metadata: Metadata{
-					Namespace: ingress.Metadata.Namespace,
+			createEvent(v1.Event{
+				ObjectMeta: v1.ObjectMeta{
+					Namespace: ingress.Namespace,
 				},
 				InvolvedObject: ingressReference(ingress, ""),
 				Reason:         "ACMEError",
@@ -660,9 +666,9 @@ func (p *CertProcessor) processIngress(ingress Ingress) {
 			continue
 		}
 		if processed {
-			createEvent(Event{
-				Metadata: Metadata{
-					Namespace: ingress.Metadata.Namespace,
+			createEvent(v1.Event{
+				ObjectMeta: v1.ObjectMeta{
+					Namespace: ingress.Namespace,
 				},
 				InvolvedObject: ingressReference(ingress, ""),
 				Reason:         "ACMEProcessed",
@@ -675,8 +681,8 @@ func (p *CertProcessor) processIngress(ingress Ingress) {
 }
 
 func certificateNamespace(c Certificate) string {
-	if c.Metadata.Namespace != "" {
-		return c.Metadata.Namespace
+	if c.Namespace != "" {
+		return c.Namespace
 	}
 	return "default"
 }
