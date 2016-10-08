@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: kube-cert-manager
-          image: palmstonegames/kube-cert-manager:0.3
+          image: palmstonegames/kube-cert-manager:0.3.1
           args:
             - "-data-dir=/var/lib/cert-manager"
             - "-acme-url=https://acme-staging.api.letsencrypt.org/directory"
