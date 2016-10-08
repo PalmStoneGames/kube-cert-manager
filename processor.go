@@ -365,7 +365,7 @@ func (p *CertProcessor) processCertificate(cert Certificate) (processed bool, er
 		// Some acme providers require locking, if the mutex is specified, lock it
 		if acmeClientMutex != nil {
 			acmeClientMutex.Lock()
-			defer acmeClientMutex.Lock()
+			defer acmeClientMutex.Unlock()
 		}
 	} else { // Generate a new ACME user
 		userKey, err := rsa.GenerateKey(rand.Reader, 2048)
@@ -387,7 +387,7 @@ func (p *CertProcessor) processCertificate(cert Certificate) (processed bool, er
 		// Some acme providers require locking, if the mutex is specified, lock it
 		if acmeClientMutex != nil {
 			acmeClientMutex.Lock()
-			defer acmeClientMutex.Lock()
+			defer acmeClientMutex.Unlock()
 		}
 
 		// Register
