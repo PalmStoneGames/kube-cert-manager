@@ -9,7 +9,7 @@ The code itself however, was entirely reimplemented to use xenolf/lego as the ba
 
 * Manage Kubernetes TLS secrets backed by Let's Encrypt issued certificates.
 * Manage [Let's Encrypt](https://letsencrypt.org) issued certificates based on Kubernetes ThirdParty Resources.
-* Manage [Let's Encrypt](https://letsencrypt.org) issued certificates based on Kubenretes Ingress Resources.
+* Manage [Let's Encrypt](https://letsencrypt.org) issued certificates based on Kubernetes Ingress Resources.
 * Domain validation using ACME HTTP-01, SNI-TLS-01 or DNS-01 challenges.
 * Support for multiple challenge providers.
 
