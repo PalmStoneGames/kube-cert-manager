@@ -4,7 +4,8 @@
 
 kube-cert-manager will answer HTTP challenges on port 8080,
 you will need to setup a proxy or service definition that correctly directs requests on your domain on port 80 to the kube-cert-manager
-If using a proxy, only `/.well-known/acme-challenge/` needs to be forwarded to the kube-cert-manager
+If using a proxy, only `/.well-known/acme-challenge/` needs to be forwarded to the kube-cert-manager. Please note, kube-cert-manager
+matches the `Host` header of the request; it must be passed through the proxy.
 
 ## TLS
 
