@@ -39,9 +39,9 @@ import (
 	"github.com/xenolf/lego/providers/dns/rfc2136"
 	"github.com/xenolf/lego/providers/dns/route53"
 	"github.com/xenolf/lego/providers/dns/vultr"
-	"k8s.io/client-go/1.4/pkg/api/unversioned"
-	"k8s.io/client-go/1.4/pkg/api/v1"
-	"k8s.io/client-go/1.4/pkg/apis/extensions/v1beta1"
+	"k8s.io/client-go/pkg/api/unversioned"
+	"k8s.io/client-go/pkg/api/v1"
+	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
 )
 
 type CertProcessor struct {
@@ -407,7 +407,7 @@ func (p *CertProcessor) processCertificate(cert Certificate) (processed bool, er
 		acmeCert.DomainName = cert.Spec.Domain
 
 		// Obtain a cert
-		certRes, errs := acmeClient.ObtainCertificate([]string{cert.Spec.Domain}, true, nil)
+		certRes, errs := acmeClient.ObtainCertificate([]string{cert.Spec.Domain}, true, nil, false)
 		if errs[cert.Spec.Domain] != nil {
 			return false, errors.Wrapf(errs[cert.Spec.Domain], "Error while obtaining certificate for new domain %v", cert.Spec.Domain)
 		}
@@ -426,7 +426,7 @@ func (p *CertProcessor) processCertificate(cert Certificate) (processed bool, er
 		certRes.Certificate = acmeCert.Cert
 		certRes.PrivateKey = acmeCert.PrivateKey
 
-		certRes, err = acmeClient.RenewCertificate(certRes, true)
+		certRes, err = acmeClient.RenewCertificate(certRes, true, false)
 		if err != nil {
 			return false, errors.Wrapf(err, "Error while renewing certificate for existing domain %v", cert.Spec.Domain)
 		}
