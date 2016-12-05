@@ -33,6 +33,7 @@ import (
 	"github.com/xenolf/lego/providers/dns/dyn"
 	"github.com/xenolf/lego/providers/dns/gandi"
 	"github.com/xenolf/lego/providers/dns/googlecloud"
+	"github.com/xenolf/lego/providers/dns/linode"
 	"github.com/xenolf/lego/providers/dns/namecheap"
 	"github.com/xenolf/lego/providers/dns/ovh"
 	"github.com/xenolf/lego/providers/dns/pdns"
@@ -105,6 +106,8 @@ func (p *CertProcessor) newACMEClient(acmeUser acme.User, provider string) (*acm
 		return initDNSProvider(gandi.NewDNSProvider())
 	case "googlecloud":
 		return initDNSProvider(googlecloud.NewDNSProvider())
+	case "linode":
+		return initDNSProvider(linode.NewDNSProvider())
 	case "namecheap":
 		return initDNSProvider(namecheap.NewDNSProvider())
 	case "ovh":
