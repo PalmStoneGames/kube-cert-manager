@@ -6,18 +6,19 @@ deploy has 'root' level access to the whole cluster. Containers can enter
 any other container, including priviledged containers, do and delete 
 anything across the entire cluster.
 
-Using an authorisation plug-in is prudent. RBAC allow you to manage 
+Using an authorization plug-in is prudent. RBAC allow you to manage 
 role-based access as kubernetes resources.
 
-The [`rbac-example.yaml`](..\k8s\rbac-example.yaml) file contains
+The [`rbac-example.yaml`](../k8s/rbac-example.yaml) file contains
 Service Account and a Cluster Role to allow kube-cert-manager
 to manage certificates across the whole cluster
 
 To use this you first need RBAC enabled for your cluster
+
   https://kubernetes.io/docs/admin/authorization/
 
 You might also need some base RBAC roles installed so your cluster
-can operate. Then create the Service Account and roles in [this file](..\k8s\rbac-example.yaml):
+can operate. Then create the Service Account and roles in [this file](../k8s/rbac-example.yaml):
 ```
 kubectl create -f rbac-example.yaml
 ```
