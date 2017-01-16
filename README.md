@@ -35,10 +35,10 @@ The code itself however, was entirely reimplemented to use xenolf/lego as the ba
 * [Consuming Certificates](docs/consume-certificates.md)
 - [Managing Certificates for Ingress Resources](docs/ingress.md)
 - [Garbage Collection of Secrets](docs/garbage-collection.md)
+* [Secure Deployment using RBAC](docs/secure-deployment.md)
 
 ## Documentation
 
 * [Certificate Third Party Resources](docs/certificate-third-party-resource.md)
 * [Certificate Objects](docs/certificate-objects.md)
 * [Challenge Providers](docs/providers.md)
-* [Secure Deployment](docs/secure-deployment.md)
