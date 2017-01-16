@@ -33,12 +33,12 @@ The code itself however, was entirely reimplemented to use xenolf/lego as the ba
 * [Creating a Certificate](docs/create-a-certificate.md)
 * [Deleting a Certificate](docs/delete-a-certificate.md)
 * [Consuming Certificates](docs/consume-certificates.md)
-- [Managing certificates for Ingress Resources](docs/ingress.md)
-- [Garbage collection of secrets](docs/garbage-collection.md)
+- [Managing Certificates for Ingress Resources](docs/ingress.md)
+- [Garbage Collection of Secrets](docs/garbage-collection.md)
 
 ## Documentation
 
 * [Certificate Third Party Resources](docs/certificate-third-party-resource.md)
 * [Certificate Objects](docs/certificate-objects.md)
-* [Challenge providers](docs/providers.md)
+* [Challenge Providers](docs/providers.md)
 * [Secure Deployment](docs/secure-deployment.md)
