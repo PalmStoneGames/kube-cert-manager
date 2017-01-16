@@ -13,9 +13,7 @@ The [`rbac-example.yaml`](../k8s/rbac-example.yaml) file contains
 Service Account and a Cluster Role to allow kube-cert-manager
 to manage certificates across the whole cluster
 
-To use this you first need RBAC enabled for your cluster
-
-  https://kubernetes.io/docs/admin/authorization/
+To use this you first need [RBAC enabled for your cluster](https://kubernetes.io/docs/admin/authorization/).
 
 You might also need some base RBAC roles installed so your cluster
 can operate. Then create the Service Account and roles in [this file](../k8s/rbac-example.yaml):
