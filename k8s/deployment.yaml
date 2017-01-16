@@ -20,7 +20,7 @@ spec:
             - "-acme-url=https://acme-staging.api.letsencrypt.org/directory"
             # NOTE: the URL above points to the staging server, where you won't get real certs.
             # Uncomment the line below to use the production LetsEncrypt server:
-            #- "-acme-url=https://acme.api.letsencrypt.org/directory"
+            #- "-acme-url=https://acme-v01.api.letsencrypt.org/directory"
           volumeMounts:
             - name: data
               mountPath: /var/lib/cert-manager
