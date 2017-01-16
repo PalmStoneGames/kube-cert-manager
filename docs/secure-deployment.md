@@ -16,7 +16,7 @@ to manage certificates across the whole cluster
 To use this you first need [RBAC enabled for your cluster](https://kubernetes.io/docs/admin/authorization/).
 
 You might also need some base RBAC roles installed so your cluster
-can operate. Then create the Service Account and roles in [this file](../k8s/rbac-example.yaml):
+can operate. Then create the Service Account and roles in the [`rbac-example.yaml`](../k8s/rbac-example.yaml) file:
 ```
 kubectl create -f rbac-example.yaml
 ```
