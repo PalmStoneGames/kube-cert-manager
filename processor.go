@@ -72,11 +72,11 @@ func (p *CertProcessor) newACMEClient(acmeUser acme.User, provider string) (*acm
 
 	initDNSProvider := func(p acme.ChallengeProvider, err error) (*acme.Client, *sync.Mutex, error) {
 		if err != nil {
-			return nil, nil, errors.Wrapf(err, "Error while initializing provider %v", provider)
+			return nil, nil, errors.Wrapf(err, "Error while initializing challenge provider %v", provider)
 		}
 
 		if err := acmeClient.SetChallengeProvider(acme.DNS01, p); err != nil {
-			return nil, nil, errors.Wrap(err, "Error while setting cloudflare challenge provider")
+			return nil, nil, errors.Wrap(err, "Error while setting challenge provider %v for dns-01", provider)
 		}
 
 		acmeClient.ExcludeChallenges([]acme.Challenge{acme.HTTP01, acme.TLSSNI01})
