@@ -76,7 +76,7 @@ func (p *CertProcessor) newACMEClient(acmeUser acme.User, provider string) (*acm
 		}
 
 		if err := acmeClient.SetChallengeProvider(acme.DNS01, p); err != nil {
-			return nil, nil, errors.Wrap(err, "Error while setting challenge provider %v for dns-01", provider)
+			return nil, nil, errors.Wrapf(err, "Error while setting challenge provider %v for dns-01", provider)
 		}
 
 		acmeClient.ExcludeChallenges([]acme.Challenge{acme.HTTP01, acme.TLSSNI01})
