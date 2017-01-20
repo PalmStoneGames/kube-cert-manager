@@ -1,0 +1,58 @@
+#
+# Service Account and Cluster Role to allow kube-cert-manager
+# to manage certificates across the whole cluster
+#
+# Most default kubernetes installs have authorization set to 'AlwaysAllow'.
+# This means the 'default' Service Account provided to every container you 
+# deploy has 'root' level access to the whole cluster. Containers can enter 
+# any other container, including priviledged containers, do and delete 
+# anything across the entire cluster. Using an authorisation plug-in is
+# prudent. RBAC allow you to manage role-based access as k8s resources.
+#
+# To use this you first need RBAC enabled for your cluster
+#   https://kubernetes.io/docs/admin/authorization/
+# You might also need some base RBAC roles installed so your cluster
+# can operate. Then create the Service Account and roles in this file:
+#   kubectl create -f rbac-example.yaml
+# Then add to a spec.template.spec.serviceAccount to the deployment:
+#   serviceAccount: kube-cert-manager
+# and deploy the kube-cert-manager as normal.
+# Check the kube-cert-manager logs for any permission errors:
+#   kubectl logs <pod-name> --container kube-cert-manager
+# If you are deploying to a different namespace that 'default',
+# change the namespaces below and in the Deployment spec.
+#
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kube-cert-manager
+  namespace: default
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1alpha1
+metadata:
+    name: kube-cert-manager
+rules:
+  - apiGroups: ["*"]
+    resources: ["certificates", "ingresses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["*"]
+    resources: ["secrets"]
+    verbs: ["get", "list", "create", "update", "delete"]
+  - apiGroups: ["*"]
+    resources: ["events"]
+    verbs: ["create"]
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1alpha1
+metadata:
+  name: kube-cert-manager-service-account
+subjects:
+  - kind: ServiceAccount
+    namespace: default
+    name: kube-cert-manager
+roleRef:
+  kind: ClusterRole
+  name: kube-cert-manager
+  apiGroup: rbac.authorization.k8s.io
