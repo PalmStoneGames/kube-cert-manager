@@ -6,8 +6,8 @@
 # https://github.com/whereisaaron/
 #
 
-PROJECT_NAME=${PROJECT_NAME:-kube-cert-manager}
-PROJECT_REGION=${PROJECT_REGION:-us-east-1}
+: ${PROJECT_NAME:=kube-cert-manager}
+: ${PROJECT_REGION:=us-east-1}
 
 ID=$1
 if [[ -z "${ID}" ]]; then
@@ -18,9 +18,10 @@ fi
 LOG_GROUP="/aws/codebuild/${ID%%:*}"
 LOG_STREAM="${ID##*:}"
 
-if [[ -z ${LOG_GROUP} || -z "${LOG_STREAM}" ]]; then
+if [[ -z "${LOG_GROUP}" || -z "${LOG_STREAM}" ]]; then
   echo "Usage: $0 <build.id>"
   echo "$0 kube-cert-manager:eb8ad990-11ee-4c16-b475-32b2dba84888"
+  exit 1
 fi
 
 aws logs --region=us-east-1 get-log-events \
