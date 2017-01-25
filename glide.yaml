@@ -1,0 +1,27 @@
+package: stable.k8s.psg.io
+import:
+- package: github.com/boltdb/bolt
+- package: github.com/pkg/errors
+- package: github.com/xenolf/lego
+  subpackages:
+  - acme
+  - providers/dns/cloudflare
+  - providers/dns/digitalocean
+  - providers/dns/dnsimple
+  - providers/dns/dnsmadeeasy
+  - providers/dns/dyn
+  - providers/dns/gandi
+  - providers/dns/googlecloud
+  - providers/dns/linode
+  - providers/dns/namecheap
+  - providers/dns/ovh
+  - providers/dns/pdns
+  - providers/dns/rfc2136
+  - providers/dns/route53
+  - providers/dns/vultr
+- package: k8s.io/client-go
+  version: v2.0.0-alpha.0
+  subpackages:
+  - pkg/api/unversioned
+  - pkg/api/v1
+  - pkg/apis/extensions/v1beta1
