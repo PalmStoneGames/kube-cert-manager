@@ -21,6 +21,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/pkg/errors"
@@ -32,15 +33,13 @@ import (
 
 const (
 	apiHost            = "http://127.0.0.1:8001"
-	certEndpoint       = "/apis/stable.k8s.psg.io/v1/namespaces/%s/certificates"
-	certEndpointAll    = "/apis/stable.k8s.psg.io/v1/certificates"
+	certEndpoint       = "/apis/%s/v1/namespaces/%s/certificates"
+	certEndpointAll    = "/apis/%s/v1/certificates"
 	ingressEndpoint    = "/apis/extensions/v1beta1/namespaces/%s/ingresses"
 	ingressEndpointAll = "/apis/extensions/v1beta1/ingresses"
 	secretsEndpoint    = "/api/v1/namespaces/%s/secrets"
 	secretsEndpointAll = "/api/v1/secrets"
 	eventsEndpoint     = "/api/v1/namespaces/%s/events"
-
-	annotationNamespace = "stable.k8s.psg.io/kcm"
 )
 
 type WatchEvent struct {
@@ -163,11 +162,23 @@ func (u *ACMEUserData) GetPrivateKey() crypto.PrivateKey {
 	return privateKey
 }
 
-func (c *ACMECertData) ToSecret() *v1.Secret {
+// ToSecret creates a Kubernetes Secret from an ACME Certificate
+func (c *ACMECertData) ToSecret(tagPrefix, class string) *v1.Secret {
 	var metadata v1.ObjectMeta
-	metadata.Labels = map[string]string{"domain": c.DomainName}
-	metadata.Annotations = map[string]string{
-		annotationNamespace: "true",
+
+	// The "true" annotation is deprecated when a class label is used
+	if class != "" {
+		metadata.Labels = map[string]string{
+			addTagPrefix(tagPrefix, "domain"): c.DomainName,
+			addTagPrefix(tagPrefix, "class"):  class,
+		}
+	} else {
+		metadata.Labels = map[string]string{
+			addTagPrefix(tagPrefix, "domain"): c.DomainName,
+		}
+		metadata.Annotations = map[string]string{
+			addTagPrefix(tagPrefix, "enabled"): "true",
+		}
 	}
 
 	data := make(map[string][]byte)
@@ -185,11 +196,11 @@ func (c *ACMECertData) ToSecret() *v1.Secret {
 	}
 }
 
-func NewACMECertDataFromSecret(s *v1.Secret) (ACMECertData, error) {
+func NewACMECertDataFromSecret(s *v1.Secret, tagPrefix string) (ACMECertData, error) {
 	var acmeCertData ACMECertData
 	var ok bool
 
-	acmeCertData.DomainName = s.Labels["domain"]
+	acmeCertData.DomainName = getDomainFromLabel(s, tagPrefix)
 	acmeCertData.Cert, ok = s.Data["tls.crt"]
 	if !ok {
 		return acmeCertData, errors.Errorf("Could not find key tls.crt in secret %v", s.Name)
@@ -386,7 +397,10 @@ func monitorEvents(endpoint string) (<-chan WatchEvent, <-chan error) {
 	go func() {
 		resourceVersion := "0"
 		for {
-			resp, err := http.Get(apiHost + endpoint + "?watch=true&resourceVersion=" + resourceVersion)
+			watchURL := apiHost + endpoint
+			watchURL, _ = addURLArgument(watchURL, "watch", "true")
+			watchURL, _ = addURLArgument(watchURL, "resourceVersion", resourceVersion)
+			resp, err := http.Get(watchURL)
 			if err != nil {
 				errc <- err
 				time.Sleep(5 * time.Second)
@@ -476,6 +490,36 @@ func monitorIngressEvents(endpoint string) (<-chan IngressEvent, <-chan error) {
 	return events, errc
 }
 
-func namespacedEndpoint(endpoint string, namespace string) string {
+func namespacedEndpoint(endpoint, namespace string) string {
 	return fmt.Sprintf(endpoint, namespace)
+}
+
+func namespacedAllCertEndpoint(endpoint, certNamespace string) string {
+	return fmt.Sprintf(endpoint, certNamespace)
+}
+
+func namespacedCertEndpoint(endpoint, certNamespace, namespace string) string {
+	return fmt.Sprintf(endpoint, certNamespace, namespace)
+}
+
+func addURLArgument(urlString string, key string, value string) (string, error) {
+	u, err := url.Parse(urlString)
+	if err != nil {
+		return "", errors.Wrapf(err, "Error parsing URL: %v", err)
+	}
+	q := u.Query()
+	q.Set(key, value)
+	u.RawQuery = q.Encode()
+	return u.String(), nil
+}
+
+func getDomainFromLabel(s *v1.Secret, tagPrefix string) string {
+	domain := s.Labels[addTagPrefix(tagPrefix, "domain")]
+	if domain == "" {
+		// deprecated plain "domain" label
+		// check for it in case people have the plain label in secrets when upgrading
+		// will be updated to the prefixed label when the Secret is next updated
+		domain = s.Labels["domain"]
+	}
+	return domain
 }

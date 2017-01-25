@@ -25,6 +25,7 @@ phases:
     commands:
       # Install go and glide, copy source into GOPATH
       - echo "Path is ${PATH}"
+      - echo "Building source version '${SOURCE_VERSION:-master}'"
       - curl -S https://storage.googleapis.com/golang/go${GO_VERSION}.linux-amd64.tar.gz 2>/dev/null | tar -C /usr/local -xzf -
       - $GO version
       - export GOPATH="${CODEBUILD_SRC_DIR}/${WORKDIR}"; mkdir -p "${GOPATH}/bin"; mkdir -p "${GOPATH}/src"

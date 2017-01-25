@@ -30,6 +30,10 @@ cat - > ${START_OPTS} <<END
     "sourceVersion": "${SOURCE_VERSION}",
     "environmentVariablesOverride": [
         {
+            "name": "SOURCE_VERSION",
+            "value": "${SOURCE_VERSION}"
+        },
+        {
             "name": "CONTAINER_VERSION",
             "value": "${CONTAINER_VERSION}"
         },

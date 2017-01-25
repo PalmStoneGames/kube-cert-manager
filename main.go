@@ -49,14 +49,24 @@ func main() {
 		syncInterval     int
 		certSecretPrefix string
 		dataDir          string
+		certNamespace    string
+		tagPrefix        string
 		namespaces       []string
+		class            string
+		defaultProvider  string
+		defaultEmail     string
 	)
 
 	flag.StringVar(&acmeURL, "acme-url", "", "The URL to the acme directory to use")
 	flag.StringVar(&certSecretPrefix, "cert-secret-prefix", "", "The prefix to use for certificate secrets")
-	flag.IntVar(&syncInterval, "sync-interval", 30, "Sync interval in seconds.")
-	flag.StringVar(&dataDir, "data-dir", "/var/lib/cert-manager", "Data directory path.")
+	flag.IntVar(&syncInterval, "sync-interval", 30, "Sync interval in seconds")
+	flag.StringVar(&dataDir, "data-dir", "/var/lib/cert-manager", "Data directory path")
+	flag.StringVar(&certNamespace, "cert-namespace", "stable.k8s.psg.io", "Namespace for the Certificate Third Party Resource")
+	flag.StringVar(&tagPrefix, "tag-prefix", "stable.k8s.psg.io/kcm.", "Prefix added to labels and annotations")
 	flag.Var((*listFlag)(&namespaces), "namespaces", "List of namespaces to monitor. The empty list means all namespaces")
+	flag.StringVar(&class, "class", "", "Class label for resources managed by this certificate manager")
+	flag.StringVar(&defaultProvider, "default-provider", "", "Default handler to handle ACME challenges")
+	flag.StringVar(&defaultEmail, "default-email", "", "Default email address for ACME registrations")
 	flag.Parse()
 
 	if acmeURL == "" {
@@ -91,7 +101,7 @@ func main() {
 	log.Println("Starting Kubernetes Certificate Controller...")
 
 	// Create the processor
-	p := NewCertProcessor(acmeURL, certSecretPrefix, namespaces, db)
+	p := NewCertProcessor(acmeURL, certSecretPrefix, certNamespace, tagPrefix, namespaces, class, defaultProvider, defaultEmail, db)
 
 	// Asynchronously start watching and refreshing certs
 	wg := sync.WaitGroup{}
@@ -99,13 +109,17 @@ func main() {
 
 	if len(p.namespaces) == 0 {
 		wg.Add(1)
-		go p.watchKubernetesEvents(certEndpointAll, ingressEndpointAll, &wg, doneChan)
+		go p.watchKubernetesEvents(
+			addLabelSelector(p, namespacedAllCertEndpoint(certEndpointAll, p.certNamespace)),
+			addLabelSelector(p, ingressEndpointAll),
+			&wg,
+			doneChan)
 	} else {
 		for _, namespace := range p.namespaces {
 			wg.Add(1)
 			go p.watchKubernetesEvents(
-				namespacedEndpoint(certEndpoint, namespace),
-				namespacedEndpoint(ingressEndpoint, namespace),
+				addLabelSelector(p, namespacedCertEndpoint(certEndpoint, p.certNamespace, namespace)),
+				addLabelSelector(p, namespacedEndpoint(ingressEndpoint, namespace)),
 				&wg,
 				doneChan,
 			)
