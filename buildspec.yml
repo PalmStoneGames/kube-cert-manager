@@ -1,0 +1,48 @@
+#
+# kube-cert-manager
+# AWS CodeBuild spec to build, containerise, and push to Docker Hub
+# Uses standard Docker build container image, installs go and glide
+# Aaron Roydhouse <aaron@roydhouse.com>
+# https://github.com/whereisaaron/
+#
+
+version: 0.1
+
+environment_variables:
+  plaintext:
+    APP_NAME: "kube-cert-manager"
+    PACKAGE: "stable.k8s.psg.io"
+    DOCKER_REPO: "whereisaaron"
+    CONTAINER_VERSION: "0.4.0"
+    DOCKER_HUB_USERNAME: "MISSING - Specify in CodeBuild project or start command"
+    DOCKER_HUB_PASSWORD: "MISSING - Specify in CodeBuild project or start command"
+    GO_VERSION: "1.7.4"
+    GO: "/usr/local/go/bin/go"
+    WORKDIR: "go"
+
+phases:
+  install:
+    commands:
+      # Install go and glide, copy source into GOPATH
+      - echo "Path is ${PATH}"
+      - curl -S https://storage.googleapis.com/golang/go${GO_VERSION}.linux-amd64.tar.gz 2>/dev/null | tar -C /usr/local -xzf -
+      - $GO version
+      - export GOPATH="${CODEBUILD_SRC_DIR}/${WORKDIR}"; mkdir -p "${GOPATH}/bin"; mkdir -p "${GOPATH}/src"
+      - export GOPATH="${CODEBUILD_SRC_DIR}/${WORKDIR}"; export PATH="${PATH}:/usr/local/go/bin:${GOPATH}/bin"; curl -S https://glide.sh/get 2>/dev/null | sh
+      - export CODE="${CODEBUILD_SRC_DIR}/${WORKDIR}/src/${PACKAGE}"; mkdir -p "${CODE}"; cp -r Dockerfile glide.* k8s *.go -t "${CODE}"
+  pre_build:
+    commands:
+      # Download go dependencies
+      - export GOPATH="${CODEBUILD_SRC_DIR}/${WORKDIR}"; export PATH="${PATH}:/usr/local/go/bin:${GOPATH}/bin"; cd "${GOPATH}/src/${PACKAGE}"; glide --no-color install
+  build:
+    commands:
+      # Build app, build and tag container
+      - export GOPATH="${CODEBUILD_SRC_DIR}/${WORKDIR}"; cd "${GOPATH}/src/${PACKAGE}"; GOARCH=amd64 GOOS=linux CGO_ENABLED=0 $GO build -o kube-cert-manager .
+      - docker build -t ${DOCKER_REPO}/${APP_NAME}:${CONTAINER_VERSION} -t ${DOCKER_REPO}/${APP_NAME}:latest "${CODEBUILD_SRC_DIR}/${WORKDIR}/src/${PACKAGE}"
+      # Login to Docker Hub and push
+      - docker login --username="$DOCKER_HUB_USERNAME" --password="$DOCKER_HUB_PASSWORD"
+      - docker push ${DOCKER_REPO}/${APP_NAME}:${CONTAINER_VERSION}
+      - docker push ${DOCKER_REPO}/${APP_NAME}:latest
+  post_build:
+    commands:
+      # Post-build commands always run, even if the build fails

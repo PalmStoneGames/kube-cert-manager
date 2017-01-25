@@ -1,0 +1,21 @@
+{
+    "name": "kube-cert-manager", 
+    "description": "Build app and container for kube-cert-manager", 
+    "source": {
+        "type": "GITHUB", 
+        "location": "https://github.com/XXXX Your Account XXXX/kube-cert-manager.git", 
+        "auth": {
+            "type": "OAUTH"
+        }
+    }, 
+    "artifacts": {
+        "type": "NO_ARTIFACTS"
+    }, 
+    "environment": {
+        "type": "LINUX_CONTAINER", 
+        "image": "aws/codebuild/docker:1.12.1", 
+        "computeType": "BUILD_GENERAL1_SMALL"
+    }, 
+    "serviceRole": "arn:aws:iam::XXXX Account Number XXXX:role/service-role/XXXX CodeBuild Role Name XXXX", 
+    "timeoutInMinutes": 30 
+}
