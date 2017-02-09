@@ -18,6 +18,7 @@ to be managed by the certificate manager has changed, from the `enabled` annotat
 * Manage [Let's Encrypt](https://letsencrypt.org) issued certificates based on Kubernetes Ingress Resources.
 * Domain validation using ACME HTTP-01, SNI-TLS-01 or DNS-01 challenges.
 * Support for multiple challenge providers.
+* Support for subject alternative names in requested certificates.
 
 ## Project Goals
 

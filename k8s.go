@@ -59,10 +59,11 @@ type Certificate struct {
 }
 
 type CertificateSpec struct {
-	Domain     string `json:"domain"`
-	Provider   string `json:"provider"`
-	Email      string `json:"email"`
-	SecretName string `json:"secretName"`
+	Domain     string   `json:"domain"`
+	Provider   string   `json:"provider"`
+	Email      string   `json:"email"`
+	SecretName string   `json:"secretName"`
+	AltNames   []string `json:"altNames"`
 }
 
 type CertificateList struct {
