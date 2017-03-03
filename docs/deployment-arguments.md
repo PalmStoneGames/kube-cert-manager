@@ -32,7 +32,7 @@ you set various arguments, including important arguments like the ACME URL.
 - `-data-dir` - Path for the 'boltdb' database, defaults to `/var/lib/cert-manager`
 - `-namespaces` - Comma-separated list of namespaces to monitor, otherwise all namespaces are monitored
 - `-class` - Class label for Ingress resources managed by this certificate manager
-- `-default-provider - Default handler to handle ACME challenges, used if not specified in a resource annotation
+- `-default-provider` - Default handler to handle ACME challenges, used if not specified in a resource annotation
 - `-default-email` - Default email address for ACME registrations, used if not specified in a resource annotation
 
 ## Obscure Arguments

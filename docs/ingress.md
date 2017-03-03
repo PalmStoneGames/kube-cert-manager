@@ -54,10 +54,10 @@ spec:
 
 ## Deprecated 'enabled' annotation
 
-Releases before version 1.5 used an `enabled` annotation, instead of the `class` label, to identify 
+Releases before version 0.5 used an `enabled` annotation, instead of the `class` label, to identify 
 which Ingress resources for which certificate secrets should be created.
 
-Version 1.5 provides backward compatibility with the old behavior, if you set the `-class` argument to blank. 
+Version 0.5 provides backward compatibility with the old behavior, if you set the `-class` argument to blank. 
 The certificate manager will then look for the deprecated `enabled` annotation instead.
 
 ```

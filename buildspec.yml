@@ -13,7 +13,7 @@ environment_variables:
     APP_NAME: "kube-cert-manager"
     PACKAGE: "stable.k8s.psg.io"
     DOCKER_REPO: "whereisaaron"
-    CONTAINER_VERSION: "0.4.0"
+    CONTAINER_VERSION: "0.5.0"
     DOCKER_HUB_USERNAME: "MISSING - Specify in CodeBuild project or start command"
     DOCKER_HUB_PASSWORD: "MISSING - Specify in CodeBuild project or start command"
     GO_VERSION: "1.7.4"
