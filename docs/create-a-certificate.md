@@ -1,8 +1,10 @@
 # Creating a Certificate
 
-Let's Encrypt issued certificates are automatically created for each Kubernetes Certificate object. This tutorial assumes that you've set the correct environment variables on the kube-cert-manager pod to make your DNS provider work (see [Configuring your challenge provider(s)](providers.md))
+Let's Encrypt issued certificates are automatically created for each Kubernetes Certificate resource. 
+This tutorial assumes that you've set the correct environment variables on the kube-cert-manager pod 
+to make your DNS provider work (see [Configuring your challenge provider(s)](providers.md))
 
-## Create a Kubernetes Certificate Object
+## Create a Kubernetes Certificate Resource
 
 ```
 cat certs/psg-dot-io.yaml

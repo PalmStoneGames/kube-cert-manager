@@ -14,13 +14,22 @@ spec:
     spec:
       containers:
         - name: kube-cert-manager
-          image: palmstonegames/kube-cert-manager:0.3.1
+          image: palmstonegames/kube-cert-manager:0.5.0
           args:
             - "-data-dir=/var/lib/cert-manager"
             - "-acme-url=https://acme-staging.api.letsencrypt.org/directory"
             # NOTE: the URL above points to the staging server, where you won't get real certs.
             # Uncomment the line below to use the production LetsEncrypt server:
             #- "-acme-url=https://acme-v01.api.letsencrypt.org/directory"
+            # You can run multiple instances of kube-cert-manager for the same namespace(s), 
+            # each watching for a different value for the 'class' label
+            #- "-class=default"
+            # You can choose to monitor only some namespaces, otherwise all namespaces will be monitored
+            #- "-namespaces=default,test"
+            # If you set a default email, you can omit the field/annotation from Certificates/Ingresses
+            #- "-default-email=me@example.com"
+            # If you set a default provider, you can omit the field/annotation from Certificates/Ingresses
+            #- "-default-provider=googlecloud"
           volumeMounts:
             - name: data
               mountPath: /var/lib/cert-manager
