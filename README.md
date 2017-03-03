@@ -49,4 +49,4 @@ to be managed by the certificate manager has changed, from the `enabled` annotat
 * [Certificate Third Party Resources](docs/certificate-third-party-resource.md)
 * [Certificate Resources](docs/certificate-resources.md)
 * [Challenge Providers](docs/providers.md)
-* [Building Container Image with AWS CodeBuild](codebuild/README.md)]
+* [Building Container Image with AWS CodeBuild](codebuild/README.md)

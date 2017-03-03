@@ -31,7 +31,7 @@ you set various arguments, including important arguments like the ACME URL.
 - `-sync-interval` - How often to garbage collect unused Secrets and check for certificates to renew
 - `-data-dir` - Path for the 'boltdb' database, defaults to `/var/lib/cert-manager`
 - `-namespaces` - Comma-separated list of namespaces to monitor, otherwise all namespaces are monitored
-- `-class` - Class label for Ingress resources managed by this certificate manager
+- `-class` - Class label value for Ingress resources managed by this certificate manager, defaults to `default`
 - `-default-provider` - Default handler to handle ACME challenges, used if not specified in a resource annotation
 - `-default-email` - Default email address for ACME registrations, used if not specified in a resource annotation
 
