@@ -1,6 +1,6 @@
 # Deleting a Certificate
 
-Deleting a Kubernetes Certificate object will cause the `kube-cert-manager` to delete the following items:
+Deleting a Kubernetes Certificate resource will cause the `kube-cert-manager` to delete the following items:
 
 * The Kubernetes TLS secret holding the Let's Encrypt certificate and private key.
 * The Let's Encrypt user account registered for the domain.

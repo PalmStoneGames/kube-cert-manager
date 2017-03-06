@@ -3,7 +3,13 @@
 This project is loosely based on https://github.com/kelseyhightower/kube-cert-manager
 It took over most of its documentation, license, as well as the general approach to how things work.
 
-The code itself however, was entirely reimplemented to use xenolf/lego as the basis instead of reimplemented an ACME client + dns plugins
+The code itself however, was entirely reimplemented to use xenolf/lego as the basis, instead of reimplementing an ACME client and DNS plugins.
+
+## Special note for upgrading from earlier versions
+
+If you are upgrading from a version before 0.5.0 then note that the default way to identify Ingress resources 
+to be managed by the certificate manager has changed, from the `enabled` annotation, to the `class` label.
+[Backwards compatible behaviour is available](docs/ingress.md) by setting the `-class` [argument](docs/deployment-arguments.md) to a blank value.
 
 ## Features
 
@@ -39,7 +45,8 @@ The code itself however, was entirely reimplemented to use xenolf/lego as the ba
 
 ## Documentation
 
+* [Deployment Arguments](docs/deployment-arguments.md)
 * [Certificate Third Party Resources](docs/certificate-third-party-resource.md)
-* [Certificate Objects](docs/certificate-objects.md)
+* [Certificate Resources](docs/certificate-resources.md)
 * [Challenge Providers](docs/providers.md)
 * [Building Container Image with AWS CodeBuild](codebuild/README.md)
