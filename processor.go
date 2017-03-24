@@ -292,7 +292,13 @@ func (p *CertProcessor) watchKubernetesEvents(certEndpoint, ingressEndpoint stri
 	}
 }
 
-func (p *CertProcessor) maintenance(syncInterval time.Duration, wg *sync.WaitGroup, doneChan <-chan struct{}) {
+func (p *CertProcessor) maintenance(syncInterval time.Duration, gc time.Duration, wg *sync.WaitGroup, doneChan <-chan struct{}) {
+	var gcTickChan <-chan time.Time = make(chan time.Time)
+	if gc > 0 {
+		gcTicker := time.NewTicker(gc)
+		defer gcTicker.Stop()
+		gcTickChan = gcTicker.C
+	}
 	for {
 		select {
 		case <-time.After(syncInterval):
@@ -302,6 +308,7 @@ func (p *CertProcessor) maintenance(syncInterval time.Duration, wg *sync.WaitGro
 			if err := p.syncIngresses(); err != nil {
 				log.Printf("Error while synchronizing ingresses during refresh: %s", err)
 			}
+		case <-gcTickChan:
 			if err := p.gcSecrets(); err != nil {
 				log.Printf("Error cleaning up secrets: %s", err)
 			}

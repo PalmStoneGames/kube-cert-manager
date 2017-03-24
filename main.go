@@ -47,6 +47,7 @@ func main() {
 	var (
 		acmeURL          string
 		syncInterval     int
+		gcInterval       time.Duration
 		certSecretPrefix string
 		dataDir          string
 		certNamespace    string
@@ -60,6 +61,7 @@ func main() {
 	flag.StringVar(&acmeURL, "acme-url", "", "The URL to the acme directory to use")
 	flag.StringVar(&certSecretPrefix, "cert-secret-prefix", "", "The prefix to use for certificate secrets")
 	flag.IntVar(&syncInterval, "sync-interval", 30, "Sync interval in seconds")
+	flag.DurationVar(&gcInterval, "gc-interval", 7*24*time.Hour, "Interval to GC old secrets as a duration (e.g. 1m, 2h, etc). Defaults to weekly. -1s to disable gc")
 	flag.StringVar(&dataDir, "data-dir", "/var/lib/cert-manager", "Data directory path")
 	flag.StringVar(&certNamespace, "cert-namespace", "stable.k8s.psg.io", "Namespace for the Certificate Third Party Resource")
 	flag.StringVar(&tagPrefix, "tag-prefix", "stable.k8s.psg.io/kcm.", "Prefix added to labels and annotations")
@@ -71,6 +73,10 @@ func main() {
 
 	if acmeURL == "" {
 		log.Fatal("The acme-url command line parameter must be specified")
+	}
+
+	if gcInterval == 0 {
+		log.Fatalf("The gc-interval parameter must be non-zero; set to '-1s' to disable gc")
 	}
 
 	// Initialize bolt
@@ -126,7 +132,7 @@ func main() {
 		}
 	}
 	wg.Add(1)
-	go p.maintenance(time.Second*time.Duration(syncInterval), &wg, doneChan)
+	go p.maintenance(time.Second*time.Duration(syncInterval), gcInterval, &wg, doneChan)
 
 	log.Println("Kubernetes Certificate Controller started successfully.")
 
