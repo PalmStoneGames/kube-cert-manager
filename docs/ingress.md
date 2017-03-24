@@ -32,7 +32,7 @@ apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
   name: ingress
-  label:
+  labels:
     stable.k8s.psg.io/kcm.class: "default"
   annotations:
     stable.k8s.psg.io/kcm.provider: "googlecloud"
