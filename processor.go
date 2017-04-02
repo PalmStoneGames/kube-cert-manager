@@ -357,10 +357,7 @@ func (p *CertProcessor) getStoredAltNames(cert Certificate) ([]string, error) {
 		return nil, errors.Wrapf(err, "Error while fetching altnames from database for domain %v", cert.Spec.Domain)
 	}
 	if altNamesRaw == nil {
-		altNamesRaw, err = json.Marshal([]string{})
-		if err != nil {
-			return nil, errors.Wrapf(err, "Error while marshalling empty altnames list for domain %v", cert.Spec.Domain)
-		}
+		return []string{}, nil
 	}
 
 	var altNames []string
