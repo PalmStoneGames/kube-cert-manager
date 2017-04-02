@@ -500,11 +500,7 @@ func (p *CertProcessor) processCertificate(cert Certificate) (processed bool, er
 		}
 	}
 
-	domains := make([]string, 1+len(altNames))
-	domains[0] = cert.Spec.Domain
-	for i, altName := range altNames {
-		domains[i+1] = altName
-	}
+	domains := append([]string{cert.Spec.Domain}, altNames...)
 	// If we have cert details stored with expected altNames, do a renewal, otherwise, obtain from scratch
 	if certDetailsRaw == nil || acmeCert.DomainName == "" || !sameAltNames {
 		acmeCert.DomainName = cert.Spec.Domain
@@ -727,10 +723,7 @@ func (p *CertProcessor) processIngress(ingress v1beta1.Ingress) {
 		if len(tls.Hosts) == 0 {
 			continue
 		}
-		altNames := make([]string, len(tls.Hosts)-1)
-		for i, host := range tls.Hosts[1:] {
-			altNames[i] = host
-		}
+		altNames := tls.Hosts[1:]
 		cert := Certificate{
 			TypeMeta: unversioned.TypeMeta{
 				APIVersion: "v1",
