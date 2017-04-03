@@ -1,5 +1,5 @@
 hash: 4716b0486c4c56cebc177f7f908b22daa9e20addd72cfadc7a999a97ca12ae78
-updated: 2017-01-18T15:02:19.65481834-05:00
+updated: 2017-03-15T09:25:15.596623506+01:00
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -35,7 +35,7 @@ imports:
   - service/route53
   - service/sts
 - name: github.com/boltdb/bolt
-  version: a705895fdad108f053eae7ee011ed94a0541ee13
+  version: e9cf4fae01b5a8ff89d0ec6b32f0d9c9f79aefdd
 - name: github.com/davecgh/go-spew
   version: 5215b55f46b2b919f50a1df0eaa5886afe4e3b3d
   subpackages:
@@ -53,7 +53,7 @@ imports:
 - name: github.com/ghodss/yaml
   version: 73d445a93680fa1a78ae23a5839bad48f32ba1ee
 - name: github.com/go-ini/ini
-  version: 766e555c68dc8bda90d197ee8946c37519c19409
+  version: 98c45284d68a05a0e0a576de574bd975946ef9ad
 - name: github.com/go-openapi/jsonpointer
   version: 46af16f9f7b149af66e5d1bd010e3574dc06de98
 - name: github.com/go-openapi/jsonreference
@@ -90,7 +90,7 @@ imports:
   - jlexer
   - jwriter
 - name: github.com/miekg/dns
-  version: ca336a1f95a6b89be9c250df26c7a41742eb4a6f
+  version: c862b7e359850847d4945cce311db2ea90cab7c0
 - name: github.com/ovh/go-ovh
   version: d2207178e10e4527e8f222fd8707982df8c3af17
   subpackages:
@@ -98,7 +98,7 @@ imports:
 - name: github.com/pborman/uuid
   version: ca53cad383cad2479bbba7f7a1a05797ec1386e4
 - name: github.com/pkg/errors
-  version: 248dadf4e9068a0b3e79f02ed0a610d935de5302
+  version: bfd5150e4e41705ded2129ec33379de1cb90b513
 - name: github.com/PuerkitoBio/purell
   version: 8a290539e2e8629dbc4e6bad948158f790ec31f4
 - name: github.com/PuerkitoBio/urlesc
@@ -118,7 +118,7 @@ imports:
   subpackages:
   - dnsimple
 - name: github.com/xenolf/lego
-  version: f5d538caab6dc0c167d4e32990c79bbf9eff578c
+  version: 45beff7ed309e190408d7ac1c89a7b7751596a73
   subpackages:
   - acme
   - providers/dns/cloudflare
@@ -136,7 +136,7 @@ imports:
   - providers/dns/route53
   - providers/dns/vultr
 - name: golang.org/x/crypto
-  version: b8a2a83acfe6e6770b75de42d5ff4c67596675c0
+  version: 728b753d0135da6801d45a38e6f43ff55779c5c2
   subpackages:
   - ocsp
 - name: golang.org/x/net
@@ -157,7 +157,7 @@ imports:
   - jws
   - jwt
 - name: golang.org/x/sys
-  version: d75a52659825e75fff6158388dddc6a5b04f9ba5
+  version: 99f16d856c9836c42d24e7ab64ea72916925fa97
   subpackages:
   - unix
 - name: golang.org/x/text
@@ -174,7 +174,7 @@ imports:
   - unicode/norm
   - width
 - name: google.golang.org/api
-  version: b9d03e6e091e36f9a089515bc84cf14c2d199c4c
+  version: 1202890e803f07684581b575fda809bf335a533f
   subpackages:
   - dns/v1
   - gensupport
@@ -195,7 +195,7 @@ imports:
 - name: gopkg.in/inf.v0
   version: 3887ee99ecf07df5b447e9b00d9c0b2adaa9f3e4
 - name: gopkg.in/ini.v1
-  version: 766e555c68dc8bda90d197ee8946c37519c19409
+  version: 98c45284d68a05a0e0a576de574bd975946ef9ad
 - name: gopkg.in/square/go-jose.v1
   version: aa2e30fdd1fe9dd3394119af66451ae790d50e0d
   subpackages:
