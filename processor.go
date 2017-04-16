@@ -357,7 +357,7 @@ func (p *CertProcessor) getStoredAltNames(cert Certificate) ([]string, error) {
 		return nil, errors.Wrapf(err, "Error while fetching altnames from database for domain %v", cert.Spec.Domain)
 	}
 	if altNamesRaw == nil {
-		return []string{}, nil
+		return nil, nil
 	}
 
 	var altNames []string
@@ -402,7 +402,7 @@ func (p *CertProcessor) processCertificate(cert Certificate) (processed bool, er
 	altNames := normalizeHostnames(cert.Spec.AltNames)
 	storedAltNames, err := p.getStoredAltNames(cert)
 	if err != nil {
-		return false, err
+		return false, errors.Wrap(err, "Error while getting stored alternative names")
 	}
 
 	sameAltNames := equalAltNames(altNames, storedAltNames)
