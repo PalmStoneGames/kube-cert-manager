@@ -84,7 +84,7 @@ func main() {
 		log.Fatalf("Error while creating bolt database file at %v: %v", dbPath, err)
 	}
 
-	for _, bucketName := range []string{"user-info", "cert-details"} {
+	for _, bucketName := range []string{"user-info", "cert-details", "domain-altnames"} {
 		err = db.Update(func(tx *bolt.Tx) error {
 			_, err = tx.CreateBucketIfNotExists([]byte(bucketName))
 			if err != nil {

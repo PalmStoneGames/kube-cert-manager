@@ -20,6 +20,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"log"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -331,6 +332,54 @@ func (p *CertProcessor) secretName(cert Certificate) string {
 	return p.certSecretPrefix + cert.Spec.Domain
 }
 
+// normalizeHostnames returns a copy of the hostnames array where all hostnames are lower
+// cased and the array sorted.
+// This allows the input to have changed order or different casing between runs,
+// but a new certificate will only be created if a certificate is added or removed.
+func normalizeHostnames(hostnames []string) []string {
+	arr := make([]string, len(hostnames))
+	copy(arr, hostnames)
+	for i, hostname := range arr {
+		arr[i] = strings.ToLower(hostname)
+	}
+	sort.Strings(arr)
+
+	return arr
+}
+
+func (p *CertProcessor) getStoredAltNames(cert Certificate) ([]string, error) {
+	var altNamesRaw []byte
+	err := p.db.View(func(tx *bolt.Tx) error {
+		altNamesRaw = tx.Bucket([]byte("domain-altnames")).Get([]byte(cert.Spec.Domain))
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Wrapf(err, "Error while fetching altnames from database for domain %v", cert.Spec.Domain)
+	}
+	if altNamesRaw == nil {
+		return nil, nil
+	}
+
+	var altNames []string
+	err = json.Unmarshal(altNamesRaw, &altNames)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Error while unmarshalling altnames from database for domain %v", cert.Spec.Domain)
+	}
+	return altNames, nil
+}
+
+func equalAltNames(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
 // processCertificate creates or renews the corresponding secret
 // processCertificate will create new ACME users if necessary, and complete ACME challenges
 // processCertificate caches ACME user and certificate information in boltdb for reuse
@@ -350,8 +399,16 @@ func (p *CertProcessor) processCertificate(cert Certificate) (processed bool, er
 		return false, errors.Wrapf(err, "Error while fetching certificate acme data for domain %v", cert.Spec.Domain)
 	}
 
-	// If a cert exists, check its expiry
-	if s != nil && getDomainFromLabel(s, p.tagPrefix) == cert.Spec.Domain {
+	altNames := normalizeHostnames(cert.Spec.AltNames)
+	storedAltNames, err := p.getStoredAltNames(cert)
+	if err != nil {
+		return false, errors.Wrap(err, "Error while getting stored alternative names")
+	}
+
+	sameAltNames := equalAltNames(altNames, storedAltNames)
+
+	// If a cert exists, and altNames are correct check its expiry and expected altNames
+	if s != nil && getDomainFromLabel(s, p.tagPrefix) == cert.Spec.Domain && sameAltNames {
 		acmeCert, err = NewACMECertDataFromSecret(s, p.tagPrefix)
 		if err != nil {
 			return false, errors.Wrapf(err, "Error while decoding acme certificate from secret for existing domain %v", cert.Spec.Domain)
@@ -440,14 +497,17 @@ func (p *CertProcessor) processCertificate(cert Certificate) (processed bool, er
 		}
 	}
 
-	// If we have cert details stored, do a renewal, otherwise, obtain from scratch
-	if certDetailsRaw == nil || acmeCert.DomainName == "" {
+	domains := append([]string{cert.Spec.Domain}, altNames...)
+	// If we have cert details stored with expected altNames, do a renewal, otherwise, obtain from scratch
+	if certDetailsRaw == nil || acmeCert.DomainName == "" || !sameAltNames {
 		acmeCert.DomainName = cert.Spec.Domain
 
 		// Obtain a cert
-		certRes, errs := acmeClient.ObtainCertificate([]string{cert.Spec.Domain}, true, nil, false)
-		if errs[cert.Spec.Domain] != nil {
-			return false, errors.Wrapf(errs[cert.Spec.Domain], "Error while obtaining certificate for new domain %v", cert.Spec.Domain)
+		certRes, errs := acmeClient.ObtainCertificate(domains, true, nil, false)
+		for _, domain := range domains {
+			if errs[domain] != nil {
+				return false, errors.Wrapf(errs[domain], "Error while obtaining certificate for new domain %v", domain)
+			}
 		}
 
 		// fill in data
@@ -486,11 +546,17 @@ func (p *CertProcessor) processCertificate(cert Certificate) (processed bool, er
 		return false, errors.Wrapf(err, "Error while marshalling user info for domain %v", cert.Spec.Domain)
 	}
 
+	altNamesRaw, err := json.Marshal(altNames)
+	if err != nil {
+		return false, errors.Wrapf(err, "Error while marshalling altNames for domain %v", cert.Spec.Domain)
+	}
+
 	// Save cert details and user info to bolt
 	err = p.db.Update(func(tx *bolt.Tx) error {
 		key := []byte(cert.Spec.Domain)
 		tx.Bucket([]byte("user-info")).Put(key, userInfoRaw)
 		tx.Bucket([]byte("cert-details")).Put(key, certDetailsRaw)
+		tx.Bucket([]byte("domain-altnames")).Put(key, altNamesRaw)
 		return nil
 	})
 	if err != nil {
@@ -543,6 +609,7 @@ func (p *CertProcessor) deleteCertificate(cert Certificate) error {
 		key := []byte(cert.Spec.Domain)
 		tx.Bucket([]byte("user-info")).Delete(key)
 		tx.Bucket([]byte("cert-details")).Delete(key)
+		tx.Bucket([]byte("domain-altnames")).Delete(key)
 		return nil
 	})
 
@@ -616,7 +683,7 @@ func ingressCertificates(p *CertProcessor, ingress v1beta1.Ingress) []Certificat
 		return nil
 	}
 	for _, tls := range ingress.Spec.TLS {
-		if len(tls.Hosts) != 1 {
+		if len(tls.Hosts) < 1 {
 			continue
 		}
 		cert := Certificate{
@@ -632,6 +699,7 @@ func ingressCertificates(p *CertProcessor, ingress v1beta1.Ingress) []Certificat
 				Provider:   provider,
 				Email:      email,
 				SecretName: tls.SecretName,
+				AltNames:   tls.Hosts[1:],
 			},
 		}
 		certs = append(certs, cert)
@@ -649,23 +717,11 @@ func (p *CertProcessor) processIngress(ingress v1beta1.Ingress) {
 	var certs []Certificate
 	provider := valueOrDefault(ingress.Annotations[addTagPrefix(p.tagPrefix, "provider")], p.defaultProvider)
 	email := valueOrDefault(ingress.Annotations[addTagPrefix(p.tagPrefix, "email")], p.defaultEmail)
-	for i, tls := range ingress.Spec.TLS {
+	for _, tls := range ingress.Spec.TLS {
 		if len(tls.Hosts) == 0 {
 			continue
 		}
-		if len(tls.Hosts) > 1 {
-			createEvent(v1.Event{
-				ObjectMeta: v1.ObjectMeta{
-					Namespace: ingress.Namespace,
-				},
-				InvolvedObject: ingressReference(ingress, fmt.Sprintf("spec.tls[%d]", i)),
-				Reason:         "ACMEMultipleHosts",
-				Message:        fmt.Sprintf("Couldn't create ACME certificate for secret %s: don't support multiple hosts per secret", tls.SecretName),
-				Source:         source,
-				Type:           "Warning",
-			})
-			continue
-		}
+		altNames := tls.Hosts[1:]
 		cert := Certificate{
 			TypeMeta: unversioned.TypeMeta{
 				APIVersion: "v1",
@@ -679,6 +735,7 @@ func (p *CertProcessor) processIngress(ingress v1beta1.Ingress) {
 				Provider:   provider,
 				Email:      email,
 				SecretName: tls.SecretName,
+				AltNames:   altNames,
 			},
 		}
 		certs = append(certs, cert)
