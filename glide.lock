@@ -1,5 +1,5 @@
 hash: 4716b0486c4c56cebc177f7f908b22daa9e20addd72cfadc7a999a97ca12ae78
-updated: 2017-03-15T09:25:15.596623506+01:00
+updated: 2017-04-19T11:25:49.795793226-07:00
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -17,29 +17,29 @@ imports:
   - aws/corehandlers
   - aws/credentials
   - aws/credentials/ec2rolecreds
-  - aws/credentials/endpointcreds
-  - aws/credentials/stscreds
   - aws/defaults
   - aws/ec2metadata
-  - aws/endpoints
   - aws/request
   - aws/session
-  - aws/signer/v4
+  - private/endpoints
   - private/protocol
   - private/protocol/query
   - private/protocol/query/queryutil
   - private/protocol/rest
   - private/protocol/restxml
   - private/protocol/xml/xmlutil
-  - private/waiter
+  - private/signer/v4
   - service/route53
-  - service/sts
 - name: github.com/boltdb/bolt
   version: e9cf4fae01b5a8ff89d0ec6b32f0d9c9f79aefdd
 - name: github.com/davecgh/go-spew
   version: 5215b55f46b2b919f50a1df0eaa5886afe4e3b3d
   subpackages:
   - spew
+- name: github.com/dnsimple/dnsimple-go
+  version: 5a5b427618a76f9eed5ede0f3e6306fbd9311d2e
+  subpackages:
+  - dnsimple
 - name: github.com/docker/distribution
   version: cd27f179f2c10c5d300e6d09025b538c475b0d51
   subpackages:
@@ -73,6 +73,10 @@ imports:
   version: 8616e8ee5e20a1704615e6c8d7afcdac06087a67
   subpackages:
   - proto
+- name: github.com/google/go-querystring
+  version: 53e6ce116135b80d037921a7fdd5138cf32d7a8a
+  subpackages:
+  - query
 - name: github.com/google/gofuzz
   version: bbcb9da2d746f8bdbd6a936686a0a6067ada0ec5
 - name: github.com/JamesClonk/vultr
@@ -113,12 +117,8 @@ imports:
   version: f1f1a805ed361a0e078bb537e4ea78cd37dcf065
   subpackages:
   - codec
-- name: github.com/weppos/dnsimple-go
-  version: 65c1ca73cb19baf0f8b2b33219b7f57595a3ccb0
-  subpackages:
-  - dnsimple
 - name: github.com/xenolf/lego
-  version: 45beff7ed309e190408d7ac1c89a7b7751596a73
+  version: 5dfe609afb1ebe9da97c9846d97a55415e5a5ccd
   subpackages:
   - acme
   - providers/dns/cloudflare
