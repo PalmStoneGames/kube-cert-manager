@@ -20,7 +20,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"time"
 
 	"github.com/pkg/errors"
 	"github.com/xenolf/lego/acme"
@@ -33,6 +32,7 @@ import (
 	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
 	"k8s.io/client-go/pkg/labels"
 	"k8s.io/client-go/pkg/runtime"
+	"k8s.io/client-go/pkg/util/flowcontrol"
 	"k8s.io/client-go/pkg/watch"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -317,35 +317,34 @@ func (k K8sClient) getSecrets(namespace string, labelSelector labels.Selector) (
 }
 
 func (k K8sClient) getCertificates(namespace string, labelSelector labels.Selector) ([]Certificate, error) {
-	var certList CertificateList
+	rl := flowcontrol.NewTokenBucketRateLimiter(0.2, 3)
 	for {
+		rl.Accept()
 		req := k.certClient.Get().Resource("certificates").Namespace(namespace)
 		if labelSelector != nil {
 			req = req.LabelsSelectorParam(labelSelector)
 		}
+		var certList CertificateList
 		err := req.Do().Into(&certList)
 		if err != nil {
-			log.Printf("Error while retrieving certificate: %v. Retrying in 5 seconds", err)
-			time.Sleep(5 * time.Second)
-			continue
+			log.Printf("Error while retrieving certificate: %v. Retrying", err)
+		} else {
+			return certList.Items, nil
 		}
-		break
 	}
-
-	return certList.Items, nil
 }
 
 func (k K8sClient) getIngresses(namespace string, labelSelector labels.Selector) ([]v1beta1.Ingress, error) {
+	rl := flowcontrol.NewTokenBucketRateLimiter(0.2, 3)
 	for {
+		rl.Accept()
 		listOpts := v1.ListOptions{}
 		if labelSelector != nil {
 			listOpts.LabelSelector = labelSelector.String()
 		}
 		ingresses, err := k.c.Extensions().Ingresses(namespace).List(listOpts)
 		if err != nil {
-			log.Printf("Error while retrieving ingress: %v. Retrying in 5 seconds", err)
-			time.Sleep(5 * time.Second)
-			continue
+			log.Printf("Error while retrieving ingress: %v. Retrying", err)
 		} else {
 			return ingresses.Items, nil
 		}
