@@ -12,13 +12,11 @@
 package main
 
 import (
-	"bytes"
 	"crypto"
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -26,21 +24,24 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/xenolf/lego/acme"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/pkg/api"
+	kerrors "k8s.io/client-go/pkg/api/errors"
+	"k8s.io/client-go/pkg/api/meta"
 	"k8s.io/client-go/pkg/api/unversioned"
 	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
+	"k8s.io/client-go/pkg/labels"
+	"k8s.io/client-go/rest"
 )
 
-const (
-	apiHost            = "http://127.0.0.1:8001"
-	certEndpoint       = "/apis/%s/v1/namespaces/%s/certificates"
-	certEndpointAll    = "/apis/%s/v1/certificates"
-	ingressEndpoint    = "/apis/extensions/v1beta1/namespaces/%s/ingresses"
-	ingressEndpointAll = "/apis/extensions/v1beta1/ingresses"
-	secretsEndpoint    = "/api/v1/namespaces/%s/secrets"
-	secretsEndpointAll = "/api/v1/secrets"
-	eventsEndpoint     = "/api/v1/namespaces/%s/events"
-)
+// K8sClient provides convenience functions for handling resources this project
+// cares about
+// TODO: merge the two clients
+type K8sClient struct {
+	c          *kubernetes.Clientset
+	certClient *rest.RESTClient
+}
 
 type WatchEvent struct {
 	Type   string          `json:"type"`
@@ -54,8 +55,58 @@ type CertificateEvent struct {
 
 type Certificate struct {
 	unversioned.TypeMeta `json:",inline"`
-	v1.ObjectMeta        `json:"metadata"`
+	Metadata             api.ObjectMeta  `json:"metadata"`
 	Spec                 CertificateSpec `json:"spec"`
+}
+
+func (c *Certificate) GetObjectKind() unversioned.ObjectKind {
+	return &c.TypeMeta
+}
+
+func (c *Certificate) GetObjectMeta() meta.Object {
+	return &c.Metadata
+}
+
+type CertificateCopy Certificate
+
+// Temporary workaround for https://github.com/kubernetes/client-go/issues/8
+func (c *Certificate) UnmarshalJSON(data []byte) error {
+	tmp := CertificateCopy{}
+	err := json.Unmarshal(data, &tmp)
+	if err != nil {
+		return err
+	}
+	tmp2 := Certificate(tmp)
+	*c = tmp2
+	return nil
+}
+
+type CertificateList struct {
+	unversioned.TypeMeta `json:",inline"`
+	Metadata             unversioned.ListMeta `json:"metadata"`
+	Items                []Certificate        `json:"items"`
+}
+
+func (c *CertificateList) GetObjectKind() unversioned.ObjectKind {
+	return &c.TypeMeta
+}
+
+func (c *CertificateList) GetListMeta() unversioned.List {
+	return &c.Metadata
+}
+
+type CertificateListCopy CertificateList
+
+// Temporary workaround for https://github.com/kubernetes/client-go/issues/8
+func (cl *CertificateList) UnmarshalJSON(data []byte) error {
+	tmp := CertificateListCopy{}
+	err := json.Unmarshal(data, &tmp)
+	if err != nil {
+		return err
+	}
+	tmp2 := CertificateList(tmp)
+	*cl = tmp2
+	return nil
 }
 
 type CertificateSpec struct {
@@ -64,12 +115,6 @@ type CertificateSpec struct {
 	Email      string   `json:"email"`
 	SecretName string   `json:"secretName"`
 	AltNames   []string `json:"altNames"`
-}
-
-type CertificateList struct {
-	unversioned.TypeMeta `json:",inline"`
-	v1.ObjectMeta        `json:"metadata"`
-	Items                []Certificate `json:"items"`
 }
 
 type ACMECertData struct {
@@ -94,7 +139,7 @@ func ingressReference(ing v1beta1.Ingress, path string) v1.ObjectReference {
 	}
 }
 
-func createEvent(ev v1.Event) {
+func (k K8sClient) createEvent(ev v1.Event) {
 	now := unversioned.Now()
 	ev.Name = fmt.Sprintf("%s.%x", ev.InvolvedObject.Name, now.UnixNano())
 	if ev.Kind == "" {
@@ -112,19 +157,10 @@ func createEvent(ev v1.Event) {
 	if ev.Count == 0 {
 		ev.Count = 1
 	}
-	b, err := json.Marshal(ev)
+	_, err := k.c.Core().Events(ev.Namespace).Create(&ev)
 	if err != nil {
-		log.Println("internal error:", err)
+		log.Printf("Error posting event: %v\n", err)
 		return
-	}
-	resp, err := http.Post(apiHost+namespacedEndpoint(eventsEndpoint, ev.Namespace), "application/json", bytes.NewReader(b))
-	if err != nil {
-		log.Println("internal error:", err)
-		return
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode >= 300 {
-		log.Println("unexpected HTTP status code while creating event:", resp.StatusCode)
 	}
 }
 
@@ -231,264 +267,227 @@ func (certDetails *ACMECertDetails) ToCertResource() acme.CertificateResource {
 	}
 }
 
-func getSecret(namespace string, key string) (*v1.Secret, error) {
-	// Run the http request
-	url := apiHost + namespacedEndpoint(secretsEndpoint, namespace) + "/" + key
-	resp, err := http.Get(url)
+func (k K8sClient) getSecret(namespace string, key string) (*v1.Secret, error) {
+	secret, err := k.c.Core().Secrets(namespace).Get(key)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Error while running http request on url: %v", url)
+		switch kerr := err.(type) {
+		case kerrors.APIStatus:
+			if kerr.Status().Code == http.StatusNotFound {
+				return nil, nil
+			} else {
+				return nil, errors.Wrapf(err, "Unexpected status code  whle fetching secret %q: %v", key, kerr.Status())
+			}
+		}
+		return nil, errors.Wrapf(err, "Unexpected error while fetching secret %q", key)
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == http.StatusNotFound {
-		return nil, nil
-	} else if resp.StatusCode != http.StatusOK {
-		return nil, errors.Errorf("Unexpected http status response while fetching secret on url %q: %v", url, resp.Status)
-	}
-
-	// Deserialize the secret
-	var secret v1.Secret
-	decoder := json.NewDecoder(resp.Body)
-	err = decoder.Decode(&secret)
-	if err != nil {
-		return nil, errors.Wrap(err, "Error while deserializing secret")
-	}
-
-	return &secret, nil
+	return secret, nil
 }
 
-func saveSecret(namespace string, secret *v1.Secret, isUpdate bool) error {
+func (k K8sClient) saveSecret(namespace string, secret *v1.Secret, isUpdate bool) error {
 	if secret.Name == "" {
 		return errors.New("Secret name must be specified in metadata")
 	}
 
-	// Serialize the secret
-	buffer := new(bytes.Buffer)
-	err := json.NewEncoder(buffer).Encode(secret)
-	if err != nil {
-		return errors.Wrapf(err, "Error while encoding secret: %v", err)
-	}
-
-	// Determine http method and url
-	var url string
-	var method string
 	if isUpdate {
-		url = apiHost + namespacedEndpoint(secretsEndpoint, namespace) + "/" + secret.Name
-		method = "PUT"
+		_, err := k.c.Secrets(namespace).Update(secret)
+		return err
 	} else {
-		url = apiHost + namespacedEndpoint(secretsEndpoint, namespace)
-		method = "POST"
+		_, err := k.c.Secrets(namespace).Create(secret)
+		return err
 	}
-
-	req, err := http.NewRequest(method, url, buffer)
-	if err != nil {
-		return errors.Wrapf(err, "Error while creating http request on url: %v", url)
-	}
-	req.Header.Add("Content-Type", "application/json")
-
-	// Actually do the request
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return errors.Wrapf(err, "Error while running http request on url: %v", url)
-	}
-	defer resp.Body.Close()
-
-	if isUpdate && resp.StatusCode != 200 {
-		return errors.Errorf("Non OK status while updating secret: %v", resp.Status)
-	} else if !isUpdate && resp.StatusCode != 201 {
-		return errors.Errorf("Non Created status while creating secret: %v", resp.Status)
-	}
-
-	return nil
 }
 
-func deleteSecret(namespace string, key string) error {
-	// Create DELETE request
-	url := apiHost + namespacedEndpoint(secretsEndpoint, namespace) + "/" + key
-	req, err := http.NewRequest("DELETE", url, nil)
-	if err != nil {
-		return errors.Wrapf(err, "Error while creating http request for url: %v", url)
-	}
-
-	// Actually do the request
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return errors.Wrapf(err, "Error while running http request on url: %v", url)
-	}
-
-	if resp.StatusCode != 200 {
-		return fmt.Errorf("Deleting %s secret failed: %s", key, resp.Status)
-	}
-
-	return nil
+func (k K8sClient) deleteSecret(namespace string, key string) error {
+	return k.c.Secrets(namespace).Delete(key, nil)
 }
 
-func getSecrets(endpoint string) ([]v1.Secret, error) {
-	var resp *http.Response
-	var err error
-
-	for {
-		resp, err = http.Get(apiHost + endpoint)
-		if err != nil {
-			log.Printf("Error while retrieving certificate: %v. Retrying in 5 seconds", err)
-			time.Sleep(5 * time.Second)
-			continue
-		}
-		break
+func (k K8sClient) getSecrets(namespace string, labelSelector labels.Selector) ([]v1.Secret, error) {
+	listOpts := v1.ListOptions{}
+	if labelSelector != nil {
+		listOpts.LabelSelector = labelSelector.String()
 	}
-
-	var secretList v1.SecretList
-	err = json.NewDecoder(resp.Body).Decode(&secretList)
+	list, err := k.c.Secrets(namespace).List(listOpts)
 	if err != nil {
 		return nil, err
 	}
-
-	return secretList.Items, nil
+	return list.Items, nil
 }
 
-func getCertificates(endpoint string) ([]Certificate, error) {
-	var resp *http.Response
-	var err error
-
-	for {
-		resp, err = http.Get(apiHost + endpoint)
-		if err != nil {
-			log.Printf("Error while retrieving certificate: %v. Retrying in 5 seconds", err)
-			time.Sleep(5 * time.Second)
-			continue
-		}
-		break
-	}
-
+func (k K8sClient) getCertificates(namespace string, labelSelector labels.Selector) ([]Certificate, error) {
 	var certList CertificateList
-	err = json.NewDecoder(resp.Body).Decode(&certList)
-	if err != nil {
-		return nil, err
+	for {
+		req := k.certClient.Get().Resource("certificates").Namespace(namespace)
+		if labelSelector != nil {
+			req = req.LabelsSelectorParam(labelSelector)
+		}
+		err := req.Do().Into(&certList)
+		if err != nil {
+			log.Printf("Error while retrieving certificate: %v. Retrying in 5 seconds", err)
+			time.Sleep(5 * time.Second)
+			continue
+		}
+		break
 	}
 
 	return certList.Items, nil
 }
 
-func getIngresses(endpoint string) ([]v1beta1.Ingress, error) {
-	var resp *http.Response
-	var err error
-
+func (k K8sClient) getIngresses(namespace string, labelSelector labels.Selector) ([]v1beta1.Ingress, error) {
 	for {
-		resp, err = http.Get(apiHost + endpoint)
+		listOpts := v1.ListOptions{}
+		if labelSelector != nil {
+			listOpts.LabelSelector = labelSelector.String()
+		}
+		ingresses, err := k.c.Extensions().Ingresses(namespace).List(listOpts)
 		if err != nil {
 			log.Printf("Error while retrieving ingress: %v. Retrying in 5 seconds", err)
 			time.Sleep(5 * time.Second)
 			continue
+		} else {
+			return ingresses.Items, nil
 		}
-		break
 	}
-
-	var ingressList v1beta1.IngressList
-	err = json.NewDecoder(resp.Body).Decode(&ingressList)
-	if err != nil {
-		return nil, err
-	}
-
-	return ingressList.Items, nil
 }
 
-func monitorEvents(endpoint string) (<-chan WatchEvent, <-chan error) {
-	events := make(chan WatchEvent)
-	errc := make(chan error, 1)
-	go func() {
-		resourceVersion := "0"
-		for {
-			watchURL := apiHost + endpoint
-			watchURL, _ = addURLArgument(watchURL, "watch", "true")
-			watchURL, _ = addURLArgument(watchURL, "resourceVersion", resourceVersion)
-			resp, err := http.Get(watchURL)
-			if err != nil {
-				errc <- err
-				time.Sleep(5 * time.Second)
-				continue
-			}
-			if resp.StatusCode != 200 {
-				errc <- errors.New("Invalid status code: " + resp.Status)
-				time.Sleep(5 * time.Second)
-				continue
-			}
-
-			decoder := json.NewDecoder(resp.Body)
-			for {
-				var event WatchEvent
-				err = decoder.Decode(&event)
-				if err != nil {
-					if err != io.EOF {
-						errc <- err
-					}
-					break
-				}
-				var header struct {
-					Metadata struct {
-						ResourceVersion string `json:"resourceVersion"`
-					} `json:"metadata"`
-				}
-				if err := json.Unmarshal([]byte(event.Object), &header); err != nil {
-					errc <- err
-					break
-				}
-				resourceVersion = header.Metadata.ResourceVersion
-				events <- event
-			}
-		}
-	}()
-
-	return events, errc
-}
-
-func monitorCertificateEvents(endpoint string) (<-chan CertificateEvent, <-chan error) {
-	rawEvents, rawErrc := monitorEvents(endpoint)
+func (k K8sClient) monitorCertificateEvents(namespace string, labelSelector labels.Selector, done <-chan struct{}) <-chan CertificateEvent {
 	events := make(chan CertificateEvent)
-	errc := make(chan error, 1)
+
+	evFunc := func(currentResourceVersion string, evType string, obj interface{}) string {
+		cert, ok := obj.(Certificate)
+		if !ok {
+			log.Printf("could not convert %v (%T) into Certificate", obj, obj)
+			return currentResourceVersion
+		}
+		events <- CertificateEvent{
+			Type:   evType,
+			Object: cert,
+		}
+		return cert.Metadata.ResourceVersion
+	}
+
 	go func() {
+		initList := &CertificateList{}
 		for {
-			select {
-			case ev := <-rawEvents:
-				var event CertificateEvent
-				event.Type = ev.Type
-				err := json.Unmarshal([]byte(ev.Object), &event.Object)
-				if err != nil {
-					errc <- err
-					continue
+			req := k.certClient.Get().Resource("certificates").Namespace(namespace)
+			if labelSelector != nil {
+				req = req.LabelsSelectorParam(labelSelector)
+			}
+			err := req.Do().Into(initList)
+			if err != nil {
+				log.Printf("unable to do initial certificate list: %v\n", err)
+				// TODO; use proper ratelimiter
+				time.Sleep(5 * time.Second)
+			} else {
+				break
+			}
+		}
+
+		for _, el := range initList.Items {
+			evFunc("", "ADDED", el)
+		}
+
+		// Pickup where we left off with the watch
+		resourceVersion := initList.Metadata.ResourceVersion
+
+	WatchLoop:
+		for {
+			req := k.certClient.Get().Resource("certificates").Namespace(namespace).Param("resourceVersion", resourceVersion)
+			if labelSelector != nil {
+				req = req.LabelsSelectorParam(labelSelector)
+			}
+			req.Prefix("watch")
+			watch, err := req.Watch()
+			if err != nil {
+				log.Printf("unable to start watch of certificates: %v\n", err)
+				// TODO; use proper ratelimiter
+				time.Sleep(5 * time.Second)
+				continue
+			}
+			for {
+				select {
+				case el, ok := <-watch.ResultChan():
+					if !ok {
+						log.Printf("watch channel close; retrying")
+						watch.Stop()
+						time.Sleep(5 * time.Second)
+						break WatchLoop
+					}
+					resourceVersion = evFunc(resourceVersion, string(el.Type), el.Object)
+				case <-done:
+					watch.Stop()
+					break WatchLoop
 				}
-				events <- event
-			case err := <-rawErrc:
-				errc <- err
 			}
 		}
 	}()
 
-	return events, errc
+	return events
 }
 
-func monitorIngressEvents(endpoint string) (<-chan IngressEvent, <-chan error) {
-	rawEvents, rawErrc := monitorEvents(endpoint)
+func (k K8sClient) monitorIngressEvents(namespace string, labelSelector labels.Selector, done <-chan struct{}) <-chan IngressEvent {
 	events := make(chan IngressEvent)
-	errc := make(chan error, 1)
+
+	evFunc := func(evType string, obj interface{}) {
+		ing, ok := obj.(v1beta1.Ingress)
+		if !ok {
+			log.Printf("could not convert %#v into Ingress", obj)
+			return
+		}
+		events <- IngressEvent{
+			Type:   evType,
+			Object: ing,
+		}
+	}
+
+	listOpts := v1.ListOptions{}
+	if labelSelector != nil {
+		listOpts.LabelSelector = labelSelector.String()
+	}
+
 	go func() {
+		var initList *v1beta1.IngressList
 		for {
-			select {
-			case ev := <-rawEvents:
-				var event IngressEvent
-				event.Type = ev.Type
-				err := json.Unmarshal([]byte(ev.Object), &event.Object)
-				if err != nil {
-					errc <- err
-					continue
+			var err error
+			initList, err = k.c.Ingresses(namespace).List(listOpts)
+			if err != nil {
+				log.Printf("unable to do initial ingress list: %v\n", err)
+				// TODO; use proper ratelimiter
+				time.Sleep(5 * time.Second)
+			} else {
+				break
+			}
+		}
+
+		for _, el := range initList.Items {
+			evFunc("ADDED", el)
+		}
+
+		// Pickup where we left off with the watch
+		listOpts.ResourceVersion = initList.ResourceVersion
+		listOpts.Watch = true
+
+	WatchEvents:
+		for {
+			watch, err := k.c.Ingresses(namespace).Watch(listOpts)
+			if err != nil {
+				log.Printf("unable to start watch of ingresses: %v\n", err)
+				// TODO; use proper ratelimiter
+				time.Sleep(5 * time.Second)
+				continue
+			}
+			for {
+				select {
+				case el := <-watch.ResultChan():
+					evFunc(string(el.Type), el.Object)
+				case <-done:
+					watch.Stop()
+					break WatchEvents
 				}
-				events <- event
-			case err := <-rawErrc:
-				errc <- err
 			}
 		}
 	}()
 
-	return events, errc
+	return events
 }
 
 func namespacedEndpoint(endpoint, namespace string) string {

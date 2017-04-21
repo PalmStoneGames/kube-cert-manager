@@ -24,6 +24,16 @@ import (
 	"syscall"
 	"time"
 
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/pkg/api"
+	"k8s.io/client-go/pkg/api/unversioned"
+	"k8s.io/client-go/pkg/api/v1"
+	"k8s.io/client-go/pkg/runtime"
+	"k8s.io/client-go/pkg/runtime/serializer"
+	"k8s.io/client-go/pkg/watch/versioned"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+
 	"github.com/boltdb/bolt"
 )
 
@@ -45,6 +55,7 @@ func (lf *listFlag) Set(s string) error {
 func main() {
 	// Parse command line
 	var (
+		kubeconfig       string
 		acmeURL          string
 		syncInterval     int
 		certSecretPrefix string
@@ -57,6 +68,7 @@ func main() {
 		defaultEmail     string
 	)
 
+	flag.StringVar(&kubeconfig, "kubeconfig", "", "The kubeconfig to use; if empty the in-cluster config will be used")
 	flag.StringVar(&acmeURL, "acme-url", "", "The URL to the acme directory to use")
 	flag.StringVar(&certSecretPrefix, "cert-secret-prefix", "", "The prefix to use for certificate secrets")
 	flag.IntVar(&syncInterval, "sync-interval", 30, "Sync interval in seconds")
@@ -100,8 +112,54 @@ func main() {
 
 	log.Println("Starting Kubernetes Certificate Controller...")
 
+	var k8sConfig *rest.Config
+	if kubeconfig == "" {
+		k8sConfig, err = rest.InClusterConfig()
+	} else {
+		k8sConfig, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
+	}
+	if err != nil {
+		log.Fatalf("Error trying to configure k8s client: %v", err)
+	}
+	k8sClient, err := kubernetes.NewForConfig(k8sConfig)
+	if err != nil {
+		log.Fatalf("Error trying to to create k8s client: %v", err)
+	}
+
+	groupVersion := unversioned.GroupVersion{
+		Group:   "stable.k8s.psg.io",
+		Version: "v1",
+	}
+	// Create a client for the certificate TPR too
+	schemeBuilder := runtime.NewSchemeBuilder(
+		func(scheme *runtime.Scheme) error {
+			scheme.AddKnownTypes(
+				groupVersion,
+				&Certificate{},
+				&CertificateList{},
+				&api.ListOptions{},
+				&api.DeleteOptions{},
+			)
+			versioned.AddToGroupVersion(scheme, groupVersion)
+			return nil
+		})
+	if err := schemeBuilder.AddToScheme(api.Scheme); err != nil {
+		log.Fatalf("error setting up certificate scheme: %v", err)
+	}
+
+	tprConfig := *k8sConfig
+	tprConfig.GroupVersion = &groupVersion
+	tprConfig.APIPath = "/apis"
+	tprConfig.ContentType = runtime.ContentTypeJSON
+	tprConfig.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: api.Codecs}
+
+	certClient, err := rest.RESTClientFor(&tprConfig)
+	if err != nil {
+		log.Fatalf("error creating TPR Certificate client: %v", err)
+	}
+
 	// Create the processor
-	p := NewCertProcessor(acmeURL, certSecretPrefix, certNamespace, tagPrefix, namespaces, class, defaultProvider, defaultEmail, db)
+	p := NewCertProcessor(k8sClient, certClient, acmeURL, certSecretPrefix, certNamespace, tagPrefix, namespaces, class, defaultProvider, defaultEmail, db)
 
 	// Asynchronously start watching and refreshing certs
 	wg := sync.WaitGroup{}
@@ -110,16 +168,16 @@ func main() {
 	if len(p.namespaces) == 0 {
 		wg.Add(1)
 		go p.watchKubernetesEvents(
-			addLabelSelector(p, namespacedAllCertEndpoint(certEndpointAll, p.certNamespace)),
-			addLabelSelector(p, ingressEndpointAll),
+			v1.NamespaceAll,
+			p.getLabelSelector(),
 			&wg,
 			doneChan)
 	} else {
 		for _, namespace := range p.namespaces {
 			wg.Add(1)
 			go p.watchKubernetesEvents(
-				addLabelSelector(p, namespacedCertEndpoint(certEndpoint, p.certNamespace, namespace)),
-				addLabelSelector(p, namespacedEndpoint(ingressEndpoint, namespace)),
+				namespace,
+				p.getLabelSelector(),
 				&wg,
 				doneChan,
 			)
