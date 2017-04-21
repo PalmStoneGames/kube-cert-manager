@@ -1,0 +1,29 @@
+sudo: true
+services:
+- docker
+language: go
+env:
+  global:
+  - DOCKER_ORG=$(dirname ${TRAVIS_REPO_SLUG})
+go:
+- 1.8.x
+install:
+- go get github.com/Masterminds/glide
+- glide install
+script:
+- ./build.sh
+before_deploy:
+- docker login -u="${DOCKER_USERNAME}" -p="${DOCKER_PASSWORD}"
+deploy:
+- provider: script
+  script: docker build . -t ${DOCKER_ORG}/kube-cert-manager:master &&  docker push ${DOCKER_ORG}/kube-cert-manager:master
+  skip_cleanup: true
+  on:
+    branch: master
+- provider: script
+  script: docker build . -t ${DOCKER_ORG}/kube-cert-manager:${TRAVIS_TAG} -t ${DOCKER_ORG}/kube-cert-manager:latest && docker push ${DOCKER_ORG}/kube-cert-manager:${TRAVIS_TAG} && docker push ${DOCKER_ORG}/kube-cert-manager:latest
+  skip_cleanup: true
+  on:
+    tags: true
+notifications:
+  email: false
