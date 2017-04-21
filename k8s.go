@@ -32,7 +32,10 @@ import (
 	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
 	"k8s.io/client-go/pkg/labels"
+	"k8s.io/client-go/pkg/runtime"
+	"k8s.io/client-go/pkg/watch"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 )
 
 // K8sClient provides convenience functions for handling resources this project
@@ -349,142 +352,106 @@ func (k K8sClient) getIngresses(namespace string, labelSelector labels.Selector)
 	}
 }
 
-func (k K8sClient) monitorCertificateEvents(namespace string, labelSelector labels.Selector, done <-chan struct{}) <-chan CertificateEvent {
+// Copied from cache.NewListWatchFromClient since that constructor doesn't
+// allow labelselectors, but labelselectors should be preferred over field
+// selectors.
+func newListWatchFromClient(c cache.Getter, resource string, namespace string, selector labels.Selector) *cache.ListWatch {
+	listFunc := func(options api.ListOptions) (runtime.Object, error) {
+		return c.Get().
+			Namespace(namespace).
+			Resource(resource).
+			VersionedParams(&options, api.ParameterCodec).
+			LabelsSelectorParam(selector).
+			Do().
+			Get()
+	}
+	watchFunc := func(options api.ListOptions) (watch.Interface, error) {
+		return c.Get().
+			Prefix("watch").
+			Namespace(namespace).
+			Resource(resource).
+			VersionedParams(&options, api.ParameterCodec).
+			LabelsSelectorParam(selector).
+			Watch()
+	}
+	return &cache.ListWatch{ListFunc: listFunc, WatchFunc: watchFunc}
+}
+
+func (k K8sClient) monitorCertificateEvents(namespace string, selector labels.Selector, done <-chan struct{}) <-chan CertificateEvent {
 	events := make(chan CertificateEvent)
 
-	evFunc := func(currentResourceVersion string, evType string, obj interface{}) string {
-		cert, ok := obj.(Certificate)
+	evFunc := func(evType watch.EventType, obj interface{}) {
+		cert, ok := obj.(*Certificate)
 		if !ok {
 			log.Printf("could not convert %v (%T) into Certificate", obj, obj)
-			return currentResourceVersion
+			return
 		}
 		events <- CertificateEvent{
-			Type:   evType,
-			Object: cert,
+			Type:   string(evType),
+			Object: *cert,
 		}
-		return cert.Metadata.ResourceVersion
 	}
 
+	source := newListWatchFromClient(k.certClient, "certificates", namespace, selector)
+
+	store, ctrl := cache.NewInformer(source, &Certificate{}, 0, cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			evFunc(watch.Added, obj)
+		},
+		UpdateFunc: func(old, new interface{}) {
+			evFunc(watch.Modified, new)
+		},
+		DeleteFunc: func(obj interface{}) {
+			evFunc(watch.Deleted, obj)
+		},
+	})
+
 	go func() {
-		initList := &CertificateList{}
-		for {
-			req := k.certClient.Get().Resource("certificates").Namespace(namespace)
-			if labelSelector != nil {
-				req = req.LabelsSelectorParam(labelSelector)
-			}
-			err := req.Do().Into(initList)
-			if err != nil {
-				log.Printf("unable to do initial certificate list: %v\n", err)
-				// TODO; use proper ratelimiter
-				time.Sleep(5 * time.Second)
-			} else {
-				break
-			}
+		for _, initObj := range store.List() {
+			evFunc(watch.Added, initObj)
 		}
 
-		for _, el := range initList.Items {
-			evFunc("", "ADDED", el)
-		}
-
-		// Pickup where we left off with the watch
-		resourceVersion := initList.Metadata.ResourceVersion
-
-	WatchLoop:
-		for {
-			req := k.certClient.Get().Resource("certificates").Namespace(namespace).Param("resourceVersion", resourceVersion)
-			if labelSelector != nil {
-				req = req.LabelsSelectorParam(labelSelector)
-			}
-			req.Prefix("watch")
-			watch, err := req.Watch()
-			if err != nil {
-				log.Printf("unable to start watch of certificates: %v\n", err)
-				// TODO; use proper ratelimiter
-				time.Sleep(5 * time.Second)
-				continue
-			}
-			for {
-				select {
-				case el, ok := <-watch.ResultChan():
-					if !ok {
-						log.Printf("watch channel close; retrying")
-						watch.Stop()
-						time.Sleep(5 * time.Second)
-						break WatchLoop
-					}
-					resourceVersion = evFunc(resourceVersion, string(el.Type), el.Object)
-				case <-done:
-					watch.Stop()
-					break WatchLoop
-				}
-			}
-		}
+		go ctrl.Run(done)
 	}()
 
 	return events
 }
 
-func (k K8sClient) monitorIngressEvents(namespace string, labelSelector labels.Selector, done <-chan struct{}) <-chan IngressEvent {
+func (k K8sClient) monitorIngressEvents(namespace string, selector labels.Selector, done <-chan struct{}) <-chan IngressEvent {
 	events := make(chan IngressEvent)
 
-	evFunc := func(evType string, obj interface{}) {
-		ing, ok := obj.(v1beta1.Ingress)
+	evFunc := func(evType watch.EventType, obj interface{}) {
+		ing, ok := obj.(*v1beta1.Ingress)
 		if !ok {
-			log.Printf("could not convert %#v into Ingress", obj)
+			log.Printf("could not convert %v (%T) into Ingress", obj, obj)
 			return
 		}
 		events <- IngressEvent{
-			Type:   evType,
-			Object: ing,
+			Type:   string(evType),
+			Object: *ing,
 		}
 	}
 
-	listOpts := v1.ListOptions{}
-	if labelSelector != nil {
-		listOpts.LabelSelector = labelSelector.String()
-	}
+	source := newListWatchFromClient(k.c.Extensions().RESTClient(), "ingresses", namespace, selector)
+
+	store, ctrl := cache.NewInformer(source, &v1beta1.Ingress{}, 0, cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			evFunc(watch.Added, obj)
+		},
+		UpdateFunc: func(old, new interface{}) {
+			evFunc(watch.Modified, new)
+		},
+		DeleteFunc: func(obj interface{}) {
+			evFunc(watch.Deleted, obj)
+		},
+	})
 
 	go func() {
-		var initList *v1beta1.IngressList
-		for {
-			var err error
-			initList, err = k.c.Ingresses(namespace).List(listOpts)
-			if err != nil {
-				log.Printf("unable to do initial ingress list: %v\n", err)
-				// TODO; use proper ratelimiter
-				time.Sleep(5 * time.Second)
-			} else {
-				break
-			}
+		for _, initObj := range store.List() {
+			evFunc(watch.Added, initObj)
 		}
 
-		for _, el := range initList.Items {
-			evFunc("ADDED", el)
-		}
-
-		// Pickup where we left off with the watch
-		listOpts.ResourceVersion = initList.ResourceVersion
-		listOpts.Watch = true
-
-	WatchEvents:
-		for {
-			watch, err := k.c.Ingresses(namespace).Watch(listOpts)
-			if err != nil {
-				log.Printf("unable to start watch of ingresses: %v\n", err)
-				// TODO; use proper ratelimiter
-				time.Sleep(5 * time.Second)
-				continue
-			}
-			for {
-				select {
-				case el := <-watch.ResultChan():
-					evFunc(string(el.Type), el.Object)
-				case <-done:
-					watch.Stop()
-					break WatchEvents
-				}
-			}
-		}
+		go ctrl.Run(done)
 	}()
 
 	return events

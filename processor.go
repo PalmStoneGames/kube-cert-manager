@@ -265,14 +265,14 @@ func (p *CertProcessor) syncIngresses() error {
 	return nil
 }
 
-func (p *CertProcessor) watchKubernetesEvents(namespace string, labelSelector labels.Selector, wg *sync.WaitGroup, doneChan <-chan struct{}) {
+func (p *CertProcessor) watchKubernetesEvents(namespace string, selector labels.Selector, wg *sync.WaitGroup, doneChan <-chan struct{}) {
 	if namespace == v1.NamespaceAll {
 		log.Printf("Watching certificates and ingresses in all namespaces")
 	} else {
 		log.Printf("Watchining certificates and ingresses in namespace %s", namespace)
 	}
-	certEvents := p.k8s.monitorCertificateEvents(namespace, labelSelector, doneChan)
-	ingressEvents := p.k8s.monitorIngressEvents(namespace, labelSelector, doneChan)
+	certEvents := p.k8s.monitorCertificateEvents(namespace, selector, doneChan)
+	ingressEvents := p.k8s.monitorIngressEvents(namespace, selector, doneChan)
 	for {
 		select {
 		case event := <-certEvents:
