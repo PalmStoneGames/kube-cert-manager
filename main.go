@@ -66,6 +66,7 @@ func main() {
 		class            string
 		defaultProvider  string
 		defaultEmail     string
+		renewBeforeDays  int
 	)
 
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "The kubeconfig to use; if empty the in-cluster config will be used")
@@ -79,6 +80,7 @@ func main() {
 	flag.StringVar(&class, "class", "default", "Class label for resources managed by this certificate manager")
 	flag.StringVar(&defaultProvider, "default-provider", "", "Default handler to handle ACME challenges")
 	flag.StringVar(&defaultEmail, "default-email", "", "Default email address for ACME registrations")
+	flag.IntVar(&renewBeforeDays, "renew-before-days", 7, "Renew certificates before this number of days until expiry")
 	flag.Parse()
 
 	if acmeURL == "" {
@@ -159,7 +161,7 @@ func main() {
 	}
 
 	// Create the processor
-	p := NewCertProcessor(k8sClient, certClient, acmeURL, certSecretPrefix, certNamespace, tagPrefix, namespaces, class, defaultProvider, defaultEmail, db)
+	p := NewCertProcessor(k8sClient, certClient, acmeURL, certSecretPrefix, certNamespace, tagPrefix, namespaces, class, defaultProvider, defaultEmail, db, renewBeforeDays)
 
 	// Asynchronously start watching and refreshing certs
 	wg := sync.WaitGroup{}
