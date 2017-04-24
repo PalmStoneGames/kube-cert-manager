@@ -67,6 +67,7 @@ type CertProcessor struct {
 	HTTPLock         sync.Mutex
 	TLSLock          sync.Mutex
 	k8s              K8sClient
+	renewBeforeDays  int
 }
 
 // NewCertProcessor creates and populates a CertProcessor
@@ -81,7 +82,8 @@ func NewCertProcessor(
 	class string,
 	defaultProvider string,
 	defaultEmail string,
-	db *bolt.DB) *CertProcessor {
+	db *bolt.DB,
+	renewBeforeDays int) *CertProcessor {
 	return &CertProcessor{
 		k8s:              K8sClient{c: k8s, certClient: certClient},
 		acmeURL:          acmeURL,
@@ -93,6 +95,7 @@ func NewCertProcessor(
 		defaultProvider:  defaultProvider,
 		defaultEmail:     defaultEmail,
 		db:               db,
+		renewBeforeDays:  renewBeforeDays,
 	}
 }
 
@@ -418,12 +421,12 @@ func (p *CertProcessor) processCertificate(cert Certificate) (processed bool, er
 			return false, errors.Wrapf(err, "Error while decoding x509 encoded certificate for existing domain %v", cert.Spec.Domain)
 		}
 
-		// If certificate expires in more than a week, don't renew
-		if parsedCert.NotAfter.After(time.Now().Add(time.Hour * 24 * 7)) {
+		// If certificate expires after now + p.renewBeforeDays, don't renew
+		if parsedCert.NotAfter.After(time.Now().Add(time.Hour * time.Duration(24 * p.renewBeforeDays))) {
 			return false, nil
 		}
 
-		log.Printf("[%v] Expiry for cert is in less than a week (%v), attempting renewal", cert.Spec.Domain, parsedCert.NotAfter.String())
+		log.Printf("[%v] Expiry for cert is in less than %v days (%v), attempting renewal", cert.Spec.Domain, p.renewBeforeDays, parsedCert.NotAfter.String())
 	}
 
 	// Fetch acme user data and cert details from bolt
