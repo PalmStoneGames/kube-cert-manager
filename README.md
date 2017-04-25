@@ -5,6 +5,10 @@ It took over most of its documentation, license, as well as the general approach
 
 The code itself however, was entirely reimplemented to use xenolf/lego as the basis, instead of reimplementing an ACME client and DNS plugins.
 
+## Version
+
+Please note: This is the documentation for the currently in development version of kcm, please refer to [v0.4.0](https://github.com/PalmStoneGames/kube-cert-manager/tree/v0.4.0) for documentation for the latest stable version
+
 ## Special note for upgrading from earlier versions
 
 If you are upgrading from a version before 0.5.0 then note that the default way to identify Ingress resources 
