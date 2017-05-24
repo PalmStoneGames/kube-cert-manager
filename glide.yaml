@@ -3,6 +3,7 @@ import:
 - package: github.com/boltdb/bolt
 - package: github.com/pkg/errors
 - package: github.com/xenolf/lego
+  version: 5dfe609afb1ebe9da97c9846d97a55415e5a5ccd
   subpackages:
   - acme
   - providers/dns/cloudflare
