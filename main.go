@@ -113,6 +113,7 @@ func main() {
 	}
 
 	log.Println("Starting Kubernetes Certificate Controller...")
+	log.Println("All errors logs are forwarded to k8s events. To watch the logs use 'kubectl get events -w -n mynamespace'")
 
 	var k8sConfig *rest.Config
 	if kubeconfig == "" {
