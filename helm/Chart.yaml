@@ -1,0 +1,8 @@
+apiVersion: v1
+description: Manages Let's Encrypt TLS certificates for Kubernetes
+name: kube-cert-manager
+version: 0.1.0
+home: https://github.com/PalmStoneGames/kube-cert-manager
+icon: https://letsencrypt.org/images/le-logo-standard.png
+sources:
+  - https://github.com/PalmStoneGames/kube-cert-manager
