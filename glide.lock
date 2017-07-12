@@ -1,5 +1,5 @@
-hash: 5c94755f4350d42c895922d0c76578b98d88e14ec73ab08ab392cd0390c00b44
-updated: 2017-04-25T16:05:58.34210906-07:00
+hash: 72fb5381ea0d23b5b7128352d07909cec7b63537d590940b4086d17ef96bf82c
+updated: 2017-07-12T17:32:22.151572047+08:00
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -52,6 +52,8 @@ imports:
   version: 5215b55f46b2b919f50a1df0eaa5886afe4e3b3d
   subpackages:
   - spew
+- name: github.com/decker502/dnspod-go
+  version: f33a2c6040fc2550a631de7b3a53bddccdcd73fb
 - name: github.com/dnsimple/dnsimple-go
   version: 5a5b427618a76f9eed5ede0f3e6306fbd9311d2e
   subpackages:
@@ -147,6 +149,7 @@ imports:
   - providers/dns/digitalocean
   - providers/dns/dnsimple
   - providers/dns/dnsmadeeasy
+  - providers/dns/dnspod
   - providers/dns/dyn
   - providers/dns/gandi
   - providers/dns/googlecloud
