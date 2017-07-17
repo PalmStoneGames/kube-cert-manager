@@ -32,6 +32,7 @@ import (
 	"github.com/xenolf/lego/providers/dns/digitalocean"
 	"github.com/xenolf/lego/providers/dns/dnsimple"
 	"github.com/xenolf/lego/providers/dns/dnsmadeeasy"
+	"github.com/xenolf/lego/providers/dns/dnspod"
 	"github.com/xenolf/lego/providers/dns/dyn"
 	"github.com/xenolf/lego/providers/dns/gandi"
 	"github.com/xenolf/lego/providers/dns/googlecloud"
@@ -135,6 +136,8 @@ func (p *CertProcessor) newACMEClient(acmeUser acme.User, provider string) (*acm
 		return initDNSProvider(dnsimple.NewDNSProvider())
 	case "dnsmadeeasy":
 		return initDNSProvider(dnsmadeeasy.NewDNSProvider())
+	case "dnspod":
+		return initDNSProvider(dnspod.NewDNSProvider())
 	case "dyn":
 		return initDNSProvider(dyn.NewDNSProvider())
 	case "gandi":
@@ -422,7 +425,7 @@ func (p *CertProcessor) processCertificate(cert Certificate) (processed bool, er
 		}
 
 		// If certificate expires after now + p.renewBeforeDays, don't renew
-		if parsedCert.NotAfter.After(time.Now().Add(time.Hour * time.Duration(24 * p.renewBeforeDays))) {
+		if parsedCert.NotAfter.After(time.Now().Add(time.Hour * time.Duration(24*p.renewBeforeDays))) {
 			return false, nil
 		}
 
