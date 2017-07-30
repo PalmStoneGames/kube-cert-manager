@@ -21,7 +21,7 @@ spec:
             # NOTE: the URL above points to the staging server, where you won't get real certs.
             # Uncomment the line below to use the production LetsEncrypt server:
             #- "-acme-url=https://acme-v01.api.letsencrypt.org/directory"
-            # You can run multiple instances of kube-cert-manager for the same namespace(s), 
+            # You can run multiple instances of kube-cert-manager for the same namespace(s),
             # each watching for a different value for the 'class' label
             #- "-class=default"
             # You can choose to monitor only some namespaces, otherwise all namespaces will be monitored
@@ -33,8 +33,6 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /var/lib/cert-manager
-        - name: kubectl-proxy
-          image: palmstonegames/kubectl-proxy:1.4.0
       volumes:
         - name: "data"
           gcePersistentDisk:
