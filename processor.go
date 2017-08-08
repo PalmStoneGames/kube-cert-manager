@@ -432,10 +432,12 @@ func (p *CertProcessor) processCertificate(cert Certificate) (processed bool, er
 		log.Printf("[%v] Expiry for cert is in less than %v days (%v), attempting renewal", cert.Spec.Domain, p.renewBeforeDays, parsedCert.NotAfter.String())
 	}
 
+	email := valueOrDefault(cert.Spec.Email, p.defaultEmail)
+
 	// Fetch acme user data and cert details from bolt
 	var userInfoRaw, certDetailsRaw []byte
 	err = p.db.View(func(tx *bolt.Tx) error {
-		userInfoRaw = tx.Bucket([]byte("user-info")).Get([]byte(cert.Spec.Domain))
+		userInfoRaw = tx.Bucket([]byte("user-info")).Get([]byte(email))
 		certDetailsRaw = tx.Bucket([]byte("cert-details")).Get([]byte(cert.Spec.Domain))
 		return nil
 	})
@@ -445,12 +447,11 @@ func (p *CertProcessor) processCertificate(cert Certificate) (processed bool, er
 	}
 
 	provider := valueOrDefault(cert.Spec.Provider, p.defaultProvider)
-	email := valueOrDefault(cert.Spec.Email, p.defaultEmail)
 
 	// Handle user information
 	if userInfoRaw != nil { // Use existing user
 		if err := json.Unmarshal(userInfoRaw, &acmeUserInfo); err != nil {
-			return false, errors.Wrapf(err, "Error while unmarshalling user info for %v", cert.Spec.Domain)
+			return false, errors.Wrapf(err, "Error while unmarshalling user info for %v", email)
 		}
 
 		log.Printf("Creating ACME client for %v provider for %v", provider, cert.Spec.Domain)
@@ -476,10 +477,10 @@ func (p *CertProcessor) processCertificate(cert Certificate) (processed bool, er
 			Bytes: x509.MarshalPKCS1PrivateKey(userKey),
 		})
 
-		log.Printf("Creating ACME client for %v provider for %v", provider, cert.Spec.Domain)
+		log.Printf("Creating ACME client for %v provider for account %v", provider, email)
 		acmeClient, acmeClientMutex, err = p.newACMEClient(&acmeUserInfo, provider)
 		if err != nil {
-			return false, errors.Wrapf(err, "Error while creating ACME client for %v", cert.Spec.Domain)
+			return false, errors.Wrapf(err, "Error while creating ACME client for account %v", email)
 		}
 
 		// Some acme providers require locking, if the mutex is specified, lock it
@@ -491,12 +492,25 @@ func (p *CertProcessor) processCertificate(cert Certificate) (processed bool, er
 		// Register
 		acmeUserInfo.Registration, err = acmeClient.Register()
 		if err != nil {
-			return false, errors.Wrapf(err, "Error while registering user for new domain %v", cert.Spec.Domain)
+			return false, errors.Wrapf(err, "Error while registering user for new account %v", email)
 		}
 
 		// Agree to TOS
 		if err := acmeClient.AgreeToTOS(); err != nil {
-			return false, errors.Wrapf(err, "Error while agreeing to acme TOS for new domain %v", cert.Spec.Domain)
+			return false, errors.Wrapf(err, "Error while agreeing to acme TOS for new account %v", email)
+		}
+
+		userInfoRaw, err = json.Marshal(&acmeUserInfo)
+		if err != nil {
+			return false, errors.Wrapf(err, "Error while marshalling user info for account %v", email)
+		}
+		// Save cert details and user info to bolt
+		err = p.db.Update(func(tx *bolt.Tx) error {
+			tx.Bucket([]byte("user-info")).Put([]byte(email), userInfoRaw)
+			return nil
+		})
+		if err != nil {
+			return false, errors.Wrapf(err, "Error while saving user data to bolt for account %v", email)
 		}
 	}
 
@@ -557,7 +571,6 @@ func (p *CertProcessor) processCertificate(cert Certificate) (processed bool, er
 	// Save cert details and user info to bolt
 	err = p.db.Update(func(tx *bolt.Tx) error {
 		key := []byte(cert.Spec.Domain)
-		tx.Bucket([]byte("user-info")).Put(key, userInfoRaw)
 		tx.Bucket([]byte("cert-details")).Put(key, certDetailsRaw)
 		tx.Bucket([]byte("domain-altnames")).Put(key, altNamesRaw)
 		return nil
