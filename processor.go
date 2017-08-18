@@ -419,9 +419,13 @@ func (p *CertProcessor) processCertificate(cert Certificate) (processed bool, er
 
 		// Decode cert
 		pemBlock, _ := pem.Decode(acmeCert.Cert)
+		if pemBlock == nil {
+			return false, errors.Wrapf(err, "Got nil back when decoding x509 encoded certificate for existing domain %v", cert.Spec.Domain)
+		}
+
 		parsedCert, err := x509.ParseCertificate(pemBlock.Bytes)
 		if err != nil {
-			return false, errors.Wrapf(err, "Error while decoding x509 encoded certificate for existing domain %v", cert.Spec.Domain)
+			return false, errors.Wrapf(err, "Error while parsing x509 encoded certificate for existing domain %v", cert.Spec.Domain)
 		}
 
 		// If certificate expires after now + p.renewBeforeDays, don't renew
