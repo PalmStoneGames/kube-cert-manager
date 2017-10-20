@@ -10,7 +10,7 @@ you set various arguments, including important arguments like the ACME URL.
     # NOTE: the URL above points to the staging server, where you won't get real certs.
     # Uncomment the line below to use the production LetsEncrypt server:
     #- "-acme-url=https://acme-v01.api.letsencrypt.org/directory"
-    # You can run multiple instances of kube-cert-manager for the same namespace(s), 
+    # You can run multiple instances of kube-cert-manager for the same namespace(s),
     # each watching for a different value for the 'class' label
     #- "-class=default"
     # You can choose to monitor only some namespaces, otherwise all namespaces will be monitored
@@ -39,7 +39,7 @@ you set various arguments, including important arguments like the ACME URL.
 
 If you wish to build your own version of the certificate manager, you can optional use a different
 label/annotation/resource namespace prefix. E.g. `-cert-namespace=example.com -tag-prefix=kcm.example.com`.
-You need to ensure your registered Certficate Third Part Resource and Ingress labels/annotations match this setting.
+You need to ensure your registered Certficate Custom Resource Definition and Ingress labels/annotations match this setting.
 
-- `-cert-namespace` - Namespace to Certificate Third Party Resources, defaults to `stable.k8s.psg.io`
+- `-cert-namespace` - Namespace to Certificate Custom Resources, defaults to `stable.k8s.psg.io`
 - `-tag-prefix` - Prefix added to labels and annotations, defaults to `stable.k8s.psg.io/kcm.`

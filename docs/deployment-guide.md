@@ -2,36 +2,31 @@
 
 This guide will walk you through deploying the Kubernetes Certificate Manager.
 
-By default `kube-cert-manager` obtains certificates from the Let's Encrypt staging environment. 
+By default `kube-cert-manager` obtains certificates from the Let's Encrypt staging environment.
 Set the `-amce-url` flag to `https://acme-v01.api.letsencrypt.org/directory` for production.
 
 ## High Level Tasks
 
-* Create the Certificate Third Party Resource
+* Create the Certificate Custom Resource Definition
 * Create the Kubernetes Certificate Manager Deployment
 
 ## Deploying the Kubernetes Certificate Manager
 
-### Create the Certificate Third Party Resource
+### Create the Certificate Custom Resource Definition
 
-The `kube-cert-manager` is driven by [Kubernetes Certificate Resources](certificate-resources.md). 
-Certificates are not a core Kubernetes kind, but can be enabled with the [Certificate Third Party Resource](certificate-third-party-resource.md):
+The `kube-cert-manager` is driven by [Kubernetes Certificate Resources](certificate-resources.md).
+Certificates are not a core Kubernetes kind, but can be enabled with the [Certificate Custom Resource Definition](certificate-custom-resource.md):
 
-Create the Certificate Third Party Resource:
+Create the Certificate Custom Resource Definition:
 
 ```
-kubectl create -f k8s/certificate-type.yaml 
+kubectl create -f k8s/certificate-type.yaml
 ```
 
 ### Configure your DNS providers (if any)
 
 If you want to use DNS challenges, you'll need to [Configure your DNS provider](providers.md)
 If you do not do this, only http and tls challenges will be available.
-
-### Configure your kubectl version
-
-The deployment leverages `kubectl` running in proxy mode for API access. By default, the deployment is set to use kubectl 1.4.0 for this. If you are running in a 1.3 cluster, change this to 1.3.6.
-For a list of available versions, check the [hub.docker.com page for kubectl-proxy](https://hub.docker.com/r/palmstonegames/kubectl-proxy/tags/)
 
 ### Create the Kubernetes Certificate Manager Deployment
 
@@ -61,7 +56,7 @@ Check the persistent storage configuration and the [arguments](deployment-argume
 Create the `kube-cert-manager` deployment:
 
 ```
-kubectl create -f k8s/deployment.yaml 
+kubectl create -f k8s/deployment.yaml
 ```
 ```
 deployment "kube-cert-manager" created

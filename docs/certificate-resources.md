@@ -1,13 +1,13 @@
 # Certificate Resources
 
-Certificate resources are used to declare one or more Let's Encrypt issued TLS certificates. 
+Certificate resources are used to declare one or more Let's Encrypt issued TLS certificates.
 Certificate resources are consumed by the [Kubernetes Certificate Manager](https://github.com/PalmStoneGames/kube-cert-manager).
 
-Before you can create a Certificate resource you must create the [Certificate Third Party Resource](certificate-third-party-resource.md) in your Kubernetes cluster.
+Before you can create a Certificate resource you must create the [Custom Resource Definition](certificate-custom-resource.md) in your Kubernetes cluster.
 
 ## Required Fields
 
-- apiVersion - The Kubernetes API version. See Certificate Third Party Resource.
+- apiVersion - The Kubernetes API version. See Certificate Custom Resource Definition.
 - kind - The Kubernetes resource type.
 - metadata.name - The name of the Certificate resource.
 - spec.domain - The DNS domain to obtain a Let's Encrypt certificate for.
