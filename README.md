@@ -11,7 +11,7 @@ Please note: This is the documentation for the currently in development version 
 
 ## Special note for upgrading from earlier versions
 
-If you are upgrading from a version before 0.5.0 then note that the default way to identify Ingress resources 
+If you are upgrading from a version before 0.5.0 then note that the default way to identify Ingress resources
 to be managed by the certificate manager has changed, from the `enabled` annotation, to the `class` label.
 [Backwards compatible behaviour is available](docs/ingress.md) by setting the `-class` [argument](docs/deployment-arguments.md) to a blank value.
 
@@ -27,16 +27,15 @@ to be managed by the certificate manager has changed, from the `enabled` annotat
 ## Project Goals
 
 * Demonstrate how to build custom Kubernetes controllers.
-* Demonstrate how to use Kubernetes [Third Party Resources](https://github.com/kubernetes/kubernetes/blob/release-1.3/docs/design/extending-api.md).
+* Demonstrate how to use Kubernetes [Custom Resource Definitions](https://kubernetes.io/docs/concepts/api-extension/custom-resources/).
 * Demonstrate how to interact with the Kubernetes API (watches, reconciliation, etc).
 * Demonstrate how to write great documentation for Kubernetes add-ons and extensions.
 * Promote the usage of Let's Encrypt for securing web applications running on Kubernetes.
 
 ## Requirements
 
-* Kubernetes 1.3+
+* Kubernetes 1.7+
 * At least one configured [challenge provider](docs/providers.md)
-* A Kubectl with the same 1.x version as your cluster (ie. kubectl 1.3.x for a 1.3 cluster, and kubectl 1.4.x for a 1.4 cluster)
 
 ## Usage
 
@@ -51,7 +50,7 @@ to be managed by the certificate manager has changed, from the `enabled` annotat
 ## Documentation
 
 * [Deployment Arguments](docs/deployment-arguments.md)
-* [Certificate Third Party Resources](docs/certificate-third-party-resource.md)
+* [Certificate Custom Resource Definitions](docs/certificate-custom-resource.md)
 * [Certificate Resources](docs/certificate-resources.md)
 * [Challenge Providers](docs/providers.md)
 * [Building Container Image with AWS CodeBuild](codebuild/README.md)

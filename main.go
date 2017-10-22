@@ -74,7 +74,7 @@ func main() {
 	flag.StringVar(&certSecretPrefix, "cert-secret-prefix", "", "The prefix to use for certificate secrets")
 	flag.IntVar(&syncInterval, "sync-interval", 30, "Sync interval in seconds")
 	flag.StringVar(&dataDir, "data-dir", "/var/lib/cert-manager", "Data directory path")
-	flag.StringVar(&certNamespace, "cert-namespace", "stable.k8s.psg.io", "Namespace for the Certificate Third Party Resource")
+	flag.StringVar(&certNamespace, "cert-namespace", "stable.k8s.psg.io", "Namespace for the Certificate Custom Resource Definition")
 	flag.StringVar(&tagPrefix, "tag-prefix", "stable.k8s.psg.io/kcm.", "Prefix added to labels and annotations")
 	flag.Var((*listFlag)(&namespaces), "namespaces", "Comma-separated list of namespaces to monitor. The empty list means all namespaces")
 	flag.StringVar(&class, "class", "default", "Class label for resources managed by this certificate manager")
