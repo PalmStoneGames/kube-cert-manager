@@ -18,8 +18,8 @@ request certificates.
 
 ## Optional Annotations
 
-- `stable.k8s.psg.io/kcm.provider` - The same as `spec.provider` in [Certificate Resources](certificate-resources.md). Optional, if you set the `-default-email` argument.
-- `stable.k8s.psg.io/kcm.email` - The same as `spec.email` in [Certificate Resources](certificate-resources.md). Optional, if you set the `-default-provider` argument.
+- `stable.k8s.psg.io/kcm.provider` - The same as `spec.provider` in [Certificate Resources](certificate-resources.md). Optional, if you set the `-default-provider` argument.
+- `stable.k8s.psg.io/kcm.email` - The same as `spec.email` in [Certificate Resources](certificate-resources.md). Optional, if you set the `-default-email` argument.
 
 ## Example Ingress resource
 
