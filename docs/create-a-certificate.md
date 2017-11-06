@@ -7,7 +7,7 @@ to make your DNS provider work (see [Configuring your challenge provider(s)](pro
 ## Create a Kubernetes Certificate Resource
 
 ```
-cat certs/psg-dot-io.yaml
+cat k8s/cert-example.yaml
 ```
 
 ```
@@ -15,14 +15,17 @@ apiVersion: "stable.k8s.psg.io/v1"
 kind: "Certificate"
 metadata:
   name: "psg-dot-io"
+  labels:
+    stable.k8s.psg.io/kcm.class: "default"
 spec:
   domain: "psg.io"
   email: "admin@psg.io"
   provider: "googlecloud"
+  secretName: cert-psg.io
 ```
 
 ```
-kubectl create -f certs/psg-dot-io.yaml
+kubectl create -f k8s/cert-example.yaml
 ```
 
 ```
