@@ -49,8 +49,6 @@ The `kube-cert-manager` requires access to the Kubernetes API to perform the fol
 * Read secrets that hold Google cloud service accounts.
 * Create, update, and delete Kubernetes TLS secrets backed by Let's Encrypt Issued certificates.
 
-The `kube-cert-manager` leverages `kubectl` running in proxy mode for API access and both containers should be deployed in the same pod.
-
 Check the persistent storage configuration and the [arguments](deployment-arguments.md) in `../k8s/deployment.yaml` are what you want.
 
 Create the `kube-cert-manager` deployment:
@@ -69,11 +67,11 @@ kubectl get pods
 ```
 ```
 NAME                                 READY     STATUS    RESTARTS   AGE
-kube-cert-manager-1999323568-op6nk   2/2       Running   0          25s
+kube-cert-manager-1999323568-op6nk   1/1       Running   0          25s
 ```
 
 ```
-kubectl logs kube-cert-manager-1999323568-op6nk kube-cert-manager
+kubectl logs kube-cert-manager-1999323568-op6nk
 ```
 
 ```
