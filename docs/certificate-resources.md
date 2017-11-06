@@ -32,6 +32,8 @@ apiVersion: "stable.k8s.psg.io/v1"
 kind: "Certificate"
 metadata:
   name: "psg-dot-io"
+  labels:
+    stable.k8s.psg.io/kcm.class: "default"
 spec:
   domain: "psg.io"
   email: "admin@psg.io"
