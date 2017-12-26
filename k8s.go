@@ -224,6 +224,7 @@ func (c *ACMECertData) ToSecret(tagPrefix, class string) *v1.Secret {
 	data := make(map[string][]byte)
 	data["tls.crt"] = c.Cert
 	data["tls.key"] = c.PrivateKey
+	data["tls.pem"] = append(c.PrivateKey, c.Cert...)
 
 	return &v1.Secret{
 		TypeMeta: unversioned.TypeMeta{
