@@ -15,4 +15,5 @@ wish to reuse the secret name yourself, you can manually delete the
 secret first.
 
 The interval at which garbage collection runs is controlled by the
-`sync-interval` command line flag.
+`gc-interval` command line flag. It defaults to run at initial startup, and
+then once every 7 days after.

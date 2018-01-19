@@ -27,10 +27,11 @@ you set various arguments, including important arguments like the ACME URL.
 
 ## Optional Argument
 
-- `-cert-secret-prefix` - Optional prefix to add to the names of Secret resources, defaults to blank
-- `-sync-interval` - How often to garbage collect unused Secrets and check for certificates to renew
+- `-cert-secret-prefix` - Prefix to add to the names of Secret resources, defaults to blank
+- `-sync-interval` - How often to check for certificates to renew in seconds, e.g. "300"; defaults to 30
+- `-gc-interval` - How often to garbage collect unused Secrets as a duration, e.g. "2h" for 2 hours; defaults to once a week
 - `-data-dir` - Path for the 'boltdb' database, defaults to `/var/lib/cert-manager`
-- `-namespaces` - Comma-separated list of namespaces to monitor, otherwise all namespaces are monitored
+- `-namespaces` - Comma-separated list of namespaces to monitor, defaults to all namespaces
 - `-class` - Class label value for Ingress resources managed by this certificate manager, defaults to `default`
 - `-default-provider` - Default handler to handle ACME challenges, used if not specified in a resource annotation
 - `-default-email` - Default email address for ACME registrations, used if not specified in a resource annotation
