@@ -3,7 +3,7 @@ import:
 - package: github.com/boltdb/bolt
 - package: github.com/pkg/errors
 - package: github.com/xenolf/lego
-  version: 5dfe609afb1ebe9da97c9846d97a55415e5a5ccd
+  version: addee401b08f55d8b86532325d112e1fdd76bef6
   subpackages:
   - acme
   - providers/dns/cloudflare
@@ -21,6 +21,7 @@ import:
   - providers/dns/rfc2136
   - providers/dns/route53
   - providers/dns/vultr
+  - providers/dns/azure
 - package: k8s.io/client-go
   version: v2.0.0
   subpackages:
@@ -29,3 +30,7 @@ import:
   - pkg/apis/extensions/v1beta1
   - pkg/api/unversioned
 - package: github.com/decker502/dnspod-go
+- package: github.com/Azure/azure-sdk-for-go
+  version: ^12.2.0-beta
+  subpackages:
+  - arm/dns
