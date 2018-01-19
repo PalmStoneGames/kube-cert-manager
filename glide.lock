@@ -1,5 +1,5 @@
-hash: 72fb5381ea0d23b5b7128352d07909cec7b63537d590940b4086d17ef96bf82c
-updated: 2017-07-12T17:32:22.151572047+08:00
+hash: 599efef44571ee7fb3c2e347e80bd5e6589ab78bd11fe714ae8822a1774249da
+updated: 2018-01-19T14:24:46.152054873+05:30
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -30,6 +30,18 @@ imports:
   - private/protocol/xml/xmlutil
   - private/signer/v4
   - service/route53
+- name: github.com/Azure/azure-sdk-for-go
+  version: eae258195456be76b2ec9ad2ee2ab63cdda365d9
+  subpackages:
+  - arm/dns
+- name: github.com/Azure/go-autorest
+  version: 3c16bcd9ea019819c1d7c14055ed74f845f44a8a
+  subpackages:
+  - autorest
+  - autorest/adal
+  - autorest/azure
+  - autorest/date
+  - autorest/to
 - name: github.com/blang/semver
   version: 31b736133b98f26d5e078ec9eb591666edfd091f
 - name: github.com/boltdb/bolt
@@ -54,6 +66,8 @@ imports:
   - spew
 - name: github.com/decker502/dnspod-go
   version: f33a2c6040fc2550a631de7b3a53bddccdcd73fb
+- name: github.com/dgrijalva/jwt-go
+  version: dbeaa9332f19a944acb5736b4456cfcc02140e29
 - name: github.com/dnsimple/dnsimple-go
   version: 5a5b427618a76f9eed5ede0f3e6306fbd9311d2e
   subpackages:
@@ -142,9 +156,10 @@ imports:
   subpackages:
   - codec
 - name: github.com/xenolf/lego
-  version: 5dfe609afb1ebe9da97c9846d97a55415e5a5ccd
+  version: addee401b08f55d8b86532325d112e1fdd76bef6
   subpackages:
   - acme
+  - providers/dns/azure
   - providers/dns/cloudflare
   - providers/dns/digitalocean
   - providers/dns/dnsimple

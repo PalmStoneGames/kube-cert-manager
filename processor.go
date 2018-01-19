@@ -28,6 +28,7 @@ import (
 	"github.com/boltdb/bolt"
 	"github.com/pkg/errors"
 	"github.com/xenolf/lego/acme"
+	"github.com/xenolf/lego/providers/dns/azure"
 	"github.com/xenolf/lego/providers/dns/cloudflare"
 	"github.com/xenolf/lego/providers/dns/digitalocean"
 	"github.com/xenolf/lego/providers/dns/dnsimple"
@@ -128,6 +129,8 @@ func (p *CertProcessor) newACMEClient(acmeUser acme.User, provider string) (*acm
 		acmeClient.SetTLSAddress(":8081")
 		acmeClient.ExcludeChallenges([]acme.Challenge{acme.HTTP01, acme.DNS01})
 		return acmeClient, &p.TLSLock, nil
+	case "azure":
+		return initDNSProvider(azure.NewDNSProvider())
 	case "cloudflare":
 		return initDNSProvider(cloudflare.NewDNSProvider())
 	case "digitalocean":
