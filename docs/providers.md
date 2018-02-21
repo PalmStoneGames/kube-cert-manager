@@ -29,6 +29,12 @@ See [Using secrets as environment variables](http://kubernetes.io/docs/user-guid
 
 `CLOUDFLARE_API_KEY`: The API key corresponding to the email
 
+### CloudXNS
+
+`CLOUDXNS_API_KEY`: The CloudXNS API key.
+
+`CLOUDXNS_SECRET_KEY`: The CloudXNS Secret key.
+
 ### Digital Ocean
 
 `DO_AUTH_TOKEN`: The digital ocean authorization token
@@ -58,6 +64,10 @@ See [Using secrets as environment variables](http://kubernetes.io/docs/user-guid
 ### Gandi
 
 `GANDI_API_KEY`: The API key for Gandi
+
+### Gandi V5
+
+`GANDIV5_API_KEY`: The API key for Gandi's V5 API. 
 
 ### Google Cloud
 
