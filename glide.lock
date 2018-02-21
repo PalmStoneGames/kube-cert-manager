@@ -156,17 +156,19 @@ imports:
   subpackages:
   - codec
 - name: github.com/xenolf/lego
-  version: addee401b08f55d8b86532325d112e1fdd76bef6
+  version: 06a8e7c475c03ef8d4773284ac63357d2810601b
   subpackages:
   - acme
   - providers/dns/azure
   - providers/dns/cloudflare
+  - providers/dns/cloudxns
   - providers/dns/digitalocean
   - providers/dns/dnsimple
   - providers/dns/dnsmadeeasy
   - providers/dns/dnspod
   - providers/dns/dyn
   - providers/dns/gandi
+  - providers/dns/gandiv5
   - providers/dns/googlecloud
   - providers/dns/linode
   - providers/dns/namecheap
