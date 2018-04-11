@@ -1,5 +1,7 @@
 # Kubernetes Certificate Manager
 
+## Deprecation notice: This project is deprecated in favor of [cert-manager](https://github.com/jetstack/cert-manager)
+
 This project is loosely based on https://github.com/kelseyhightower/kube-cert-manager
 It took over most of its documentation, license, as well as the general approach to how things work.
 
