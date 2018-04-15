@@ -1,0 +1,202 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: {{ template "fullname" . }}
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: {{ template "fullname" . }}
+        release: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: kube-cert-manager
+          image: {{ .Values.kcm.image.repository }}:{{ .Values.kcm.image.tag }}
+          imagePullPolicy: {{ .Values.kcm.image.pullPolicy }}
+          args:
+            - "-data-dir=/var/lib/cert-manager"
+            - "-renew-before-days={{ .Values.renew_before_days }}"
+{{- if .Values.default_provider }}
+            - "-default-provider={{ .Values.default_provider }}"
+{{- end }}
+{{- if .Values.default_email }}
+            - "-default-email={{ .Values.default_email }}"
+{{- end }}
+{{- if .Values.production }}
+            - "-acme-url=https://acme-v01.api.letsencrypt.org/directory"
+{{- else }}
+            - "-acme-url=https://acme-staging.api.letsencrypt.org/directory"
+{{- end }}
+          env:
+{{- if .Values.aws }}
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "fullname". }}
+                  key: aws_access_key_id
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "fullname". }}
+                  key: aws_secret_access_key
+{{- end }}
+{{- if .Values.cloudflare }}
+            - name: CLOUDFLARE_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "fullname". }}
+                  key: cloudflare_email
+            - name: CLOUDFLARE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "fullname". }}
+                  key: cloudflare_api_key
+{{- end }}
+{{- if .Values.dnsimple }}
+            - name: DNSIMPLE_OAUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "fullname". }}
+                  key: dnsimple_oauth_token
+{{- end }}
+{{- if .Values.dnsmadeeasy }}
+            - name: DNSMADEEASY_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "fullname". }}
+                  key: dnsmadeeasy_api_key
+            - name: DNSMADEEASY_API_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "fullname". }}
+                  KEY: dnsmadeeasy_api_secret
+            - name: DNSMADEEASY_SANDBOX
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "fullname". }}
+                  key: dnsmadeeasy_sandbox
+{{- end }}
+{{- if .Values.dyn }}
+            - name: DYN_CUSTOMER_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "fullname". }}
+                  key: dyn_customer_name
+            - name: DYN_USER_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "fullname". }}
+                  key: dyn_user_name
+            - name: DYN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "fullname". }}
+                  key: dyn_password
+{{- end }}
+{{- if .Values.gandi }}
+            - name: GANDI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "fullname". }}
+                  key: gandi_api_key
+{{- end }}
+{{- if .Values.google }}
+            - name: GCE_PROJECT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "fullname". }}
+                  key: gce_project
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "fullname". }}
+                  key: google_application_credentials
+{{- end }}
+{{- if .Values.namecheap }}
+            - name: NAMECHEAP_API_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "fullname". }}
+                  key: namecheap_api_user
+            - name: NAMECHEAP_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "fullname". }}
+                  key: namecheap_api_key
+{{- end }}
+{{- if .Values.ovh }}
+            - name: OVH_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "fullname". }}
+                  key: ovh_endpoint
+            - name: OVH_APPLICATION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "fullname". }}
+                  key: ovh_application_key
+            - name: OVH_APPLICATION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "fullname". }}
+                  key: ovh_application_secret
+            - name: OVH_CONSUMER_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "fullname". }}
+                  key: ovh_consumer_key
+{{- end }}
+{{- if .Values.pdns }}
+            - name: PDNS_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "fullname". }}
+                  key: pdns_api_key
+{{- end }}
+{{- if .Values.rfc2136 }}
+            - name: RFC2136_NAMESERVER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "fullname". }}
+                  key: rfc2136_nameserver
+            - name: RFC2136_TSIG_ALGORITHM
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "fullname". }}
+                  key: rfc2136_tsig_algorithm
+            - name: RFC2136_TSIG_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "fullname". }}
+                  key: rfc2136_tsig_key
+            - name: RFC2136_TSIG_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "fullname". }}
+                  key: rfc2136_tsig_secret
+{{- end }}
+{{- if .Values.vultr }}
+            - name: VULTR_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "fullname". }}
+                  key: vultr_api_key
+{{- end }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/cert-manager
+          resources:
+{{ toYaml .Values.resources | indent 14 }}
+        - name: kubectl-proxy
+          image: {{ .Values.proxy.image.repository }}:{{ .Values.proxy.image.tag }}
+          imagePullPolicy: {{ .Values.proxy.image.pullPolicy }}
+          command:
+            - "/hyperkube"
+          args:
+            - "kubectl"
+            - "proxy"
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ template "fullname" . }}-certs

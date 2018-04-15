@@ -1,0 +1,80 @@
+# Default values for kube-cert-manager
+# This is a YAML-formatted file.
+kcm:
+  image:
+    repository: palmstonegames/kube-cert-manager
+    tag: 0.4.0
+    pullPolicy: IfNotPresent
+  resources:
+    limits:
+      cpu: 20m
+      memory: 40Mi
+    requests:
+      cpu: 10m
+      memory: 20Mi
+
+proxy:
+  image:
+    repository: gcr.io/google_containers/hyperkube
+    tag: v1.6.0
+    pullPolicy: IfNotPresent
+
+persistence:
+  accessMode: ReadWriteOnce
+  size: 1Gi
+
+# Use production or staging API:
+# production url https://acme-v01.api.letsencrypt.org/directory
+# staging url https://acme-staging.api.letsencrypt.org/directory
+# production: true
+
+# Let's Encrypt sends notices 20/10/1 day before expiration:
+# https://letsencrypt.org/docs/expiration-emails/
+renew_before_days: 21
+
+# default dns provider and email if it's not specified in certificate resource
+# default_provider: aws
+# default_email: me@email.com
+
+# Supply appropriate settings for challenge providers. For more info see:
+# https://github.com/PalmStoneGames/kube-cert-manager/blob/master/docs/providers.md
+#
+# aws:
+#   access_key_id:
+#   secret_access_key:
+# cloudflare:
+#   email:
+#   api_key:
+# do:
+#   auth_token:
+# NOTE: dnsimple v1 api is deprecated, v2 api (i.e. oauth token) requires kcm >= 0.5.0
+# dnsimple:
+#   oauth_token:
+# dnsmadeeasy:
+#   api_key:
+#   api_secret:
+#   sandbox:
+# dyn:
+#   customer_name:
+#   user_name:
+#   password:
+# gandi:
+#   api_key:
+# google:
+#   gce_project:
+#   application_credentials:
+# namecheap:
+#   api_user:
+#   api_key:
+# ovh:
+#   endpoint:
+#   application_key:
+# pdns:
+#   api_key:
+# rfc2136:
+#   nameserver:
+#   tsig_algorithm:
+#   tsig_key:
+#   tsig_secret:
+# vultr:
+#   api_key:
